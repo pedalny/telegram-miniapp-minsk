@@ -178,17 +178,22 @@ function closeModal(modalId) {
     }
 }
 
-// Получение геолокации через Telegram WebApp
+// Получение геолокации через браузерный Geolocation API
 function getCurrentLocation(formType) {
-    if (!isTelegramWebApp || !tg) {
-        alert('Геолокация доступна только в Telegram');
+    if (!navigator.geolocation) {
+        alert('Геолокация не поддерживается вашим браузером');
         return;
     }
     
-    tg.requestLocation((location) => {
-        if (location) {
-            const lat = location.latitude;
-            const lng = location.longitude;
+    // Показываем индикатор загрузки
+    const hint = document.getElementById('hint');
+    hint.textContent = 'Получение геолокации...';
+    hint.classList.add('active');
+    
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
             currentCoords = [lat, lng];
             
             // Удаляем предыдущий временный маркер
@@ -222,10 +227,34 @@ function getCurrentLocation(formType) {
                 const newLatLng = tempMarker.getLatLng();
                 currentCoords = [newLatLng.lat, newLatLng.lng];
             });
-        } else {
-            alert('Не удалось получить геолокацию');
+            
+            hideHint();
+        },
+        (error) => {
+            hideHint();
+            let errorMessage = 'Не удалось получить геолокацию';
+            
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = 'Доступ к геолокации запрещён. Разрешите доступ в настройках браузера.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = 'Информация о местоположении недоступна.';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = 'Время ожидания геолокации истекло.';
+                    break;
+            }
+            
+            alert(errorMessage);
+            console.error('Ошибка геолокации:', error);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
         }
-    });
+    );
 }
 
 // Выбор места на карте
