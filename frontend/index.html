@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Подработки в Минске</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Leaflet (OpenStreetMap) -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    />
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin="">
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: #000;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .floating-button {
+            position: fixed;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1000;
+            transition: transform 0.2s;
+        }
+
+        .floating-button:active {
+            transform: scale(0.95);
+        }
+
+        .btn-task {
+            bottom: 20px;
+            right: 20px;
+            background: #ff4444;
+            color: white;
+        }
+
+        .btn-worker {
+            bottom: 20px;
+            right: 86px;
+            background: #44ff44;
+            color: white;
+        }
+
+        .btn-my-listings {
+            bottom: 20px;
+            left: 20px;
+            background: #4444ff;
+            color: white;
+            font-size: 20px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .btn-submit:active {
+            background: #0056b3;
+        }
+
+        .btn-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .hint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            z-index: 1500;
+            font-size: 16px;
+            text-align: center;
+            display: none;
+        }
+
+        .hint.active {
+            display: block;
+        }
+
+        .listing-detail {
+            padding: 16px;
+        }
+
+        .listing-detail h3 {
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .listing-detail p {
+            margin-bottom: 8px;
+            color: #666;
+        }
+
+        .listing-detail strong {
+            color: #333;
+        }
+
+        .btn-contact {
+            width: 100%;
+            padding: 12px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 16px;
+        }
+
+        .my-listings-container {
+            padding: 16px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .tab.active {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+        }
+
+        .listing-item {
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .listing-item h4 {
+            margin-bottom: 8px;
+        }
+
+        .listing-item p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .btn-remove {
+            margin-top: 8px;
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- Плавающие кнопки -->
+    <button class="floating-button btn-task" onclick="startPlaceTask()" title="Поставить задачу">🔴</button>
+    <button class="floating-button btn-worker" onclick="startPlaceWorker()" title="Я ищу работу">🟢</button>
+    <button class="floating-button btn-my-listings" onclick="showMyListings()" title="Мои объявления">📋</button>
+
+    <!-- Подсказка -->
+    <div class="hint" id="hint">Нажмите на карте, где будет работа</div>
+
+    <!-- Модальное окно создания задачи -->
+    <div class="modal" id="taskModal">
+        <div class="modal-content">
+            <button class="btn-close" onclick="closeModal('taskModal')">×</button>
+            <div class="modal-header">🔴 Поставить задачу</div>
+            <form id="taskForm" onsubmit="submitTask(event)">
+                <div class="form-group">
+                    <label>📝 Описание задачи</label>
+                    <input type="text" id="taskTitle" required placeholder="Краткое описание">
+                </div>
+                <div class="form-group">
+                    <label>📝 Подробное описание</label>
+                    <textarea id="taskDescription" required placeholder="Подробное описание задачи"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>📍 Адрес (введите вручную)</label>
+                    <input type="text" id="taskAddress" required placeholder="Например: Минск, ул. Ленина, 1">
+                </div>
+                <div class="form-group">
+                    <label>💰 Оплата</label>
+                    <input type="text" id="taskPayment" required placeholder="Например: 20 BYN/час">
+                </div>
+                <div class="form-group">
+                    <label>📞 Контакты</label>
+                    <input type="text" id="taskContacts" required placeholder="Телефон или @username">
+                </div>
+                <button type="submit" class="btn-submit">Опубликовать задачу</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания исполнителя -->
+    <div class="modal" id="workerModal">
+        <div class="modal-content">
+            <button class="btn-close" onclick="closeModal('workerModal')">×</button>
+            <div class="modal-header">🟢 Я ищу работу</div>
+            <form id="workerForm" onsubmit="submitWorker(event)">
+                <div class="form-group">
+                    <label>🔧 Что умеете</label>
+                    <input type="text" id="workerTitle" required placeholder="Например: грузчик, разнорабочий">
+                </div>
+                <div class="form-group">
+                    <label>📝 Подробное описание</label>
+                    <textarea id="workerDescription" required placeholder="О себе и опыте работы"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>📍 Зона работы (введите вручную)</label>
+                    <input type="text" id="workerAddress" required placeholder="Например: Минск, район Уручье">
+                </div>
+                <div class="form-group">
+                    <label>💸 Оплата</label>
+                    <input type="text" id="workerPayment" required placeholder="Например: от 15 BYN/час">
+                </div>
+                <div class="form-group">
+                    <label>📞 Контакты</label>
+                    <input type="text" id="workerContacts" required placeholder="Телефон или @username">
+                </div>
+                <button type="submit" class="btn-submit">Опубликовать</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно просмотра объявления -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <button class="btn-close" onclick="closeModal('detailModal')">×</button>
+            <div class="listing-detail" id="listingDetail"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно "Мои объявления" -->
+    <div class="modal" id="myListingsModal">
+        <div class="modal-content">
+            <button class="btn-close" onclick="closeModal('myListingsModal')">×</button>
+            <div class="modal-header">Мои объявления</div>
+            <div class="my-listings-container">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('tasks')">Мои задачи 🔴</button>
+                    <button class="tab" onclick="switchTab('workers')">Я исполнитель 🟢</button>
+                </div>
+                <div id="myListingsContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
+
