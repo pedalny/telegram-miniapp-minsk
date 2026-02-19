@@ -413,7 +413,7 @@
     <!-- Плавающие кнопки -->
     <button class="floating-button btn-task" onclick="startPlaceTask()" title="Поставить задачу">🔴</button>
     <button class="floating-button btn-worker" onclick="startPlaceWorker()" title="Я ищу работу">🟢</button>
-    <button class="floating-button btn-board" onclick="showBoard()" title="Доска объявлений">📋</button>
+    <button class="floating-button btn-board" onclick="window.location.href='/board.html'" title="Доска объявлений">📋</button>
     <button class="floating-button btn-my-listings" onclick="showMyListings()" title="Мои объявления">⭐</button>
 
     <!-- Подсказка -->
@@ -525,35 +525,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно "Доска объявлений" -->
-    <div class="modal" id="boardModal">
-        <div class="modal-content">
-            <button class="btn-close" onclick="closeModal('boardModal')">×</button>
-            <div class="modal-header">📋 Доска объявлений</div>
-            <div class="board-container">
-                <div class="tabs">
-                    <button class="tab active" onclick="switchBoardTab('tasks')">Ищут исполнителей 🔴</button>
-                    <button class="tab" onclick="switchBoardTab('workers')">Ищут работу 🟢</button>
-                </div>
-                <div class="filters">
-                    <div class="filters-row">
-                        <input type="text" id="filterSearch" placeholder="Поиск по описанию..." oninput="applyFilters()">
-                        <input type="number" id="filterMinPayment" placeholder="Мин. оплата" min="0" step="0.01" oninput="applyFilters()">
-                        <select id="filterPaymentType" onchange="applyFilters()">
-                            <option value="">Все типы оплаты</option>
-                            <option value="BYN/час">BYN/час</option>
-                            <option value="BYN/день">BYN/день</option>
-                            <option value="BYN/задача">BYN/задача</option>
-                            <option value="USD/час">USD/час</option>
-                            <option value="USD/день">USD/день</option>
-                            <option value="договорная">Договорная</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="board-listings" id="boardListings"></div>
-            </div>
-        </div>
-    </div>
 
     <!-- Модальное окно "Мои объявления" -->
     <div class="modal" id="myListingsModal">

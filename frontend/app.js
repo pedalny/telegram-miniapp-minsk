@@ -86,8 +86,8 @@ function initMap() {
         }).addTo(map);
 
         // Обработчик клика по карте
-        // Адрес пользователь вводит сам в форме, мы только запоминаем координаты.
-        map.on('click', (e) => {
+        // Получаем адрес по координатам через обратный геокодинг
+        map.on('click', async (e) => {
             if (!currentMode) return;
 
             const { lat, lng } = e.latlng;
@@ -109,13 +109,35 @@ function initMap() {
 
             tempMarker = L.marker([lat, lng], { draggable: true, icon }).addTo(map);
 
-            // При перетаскивании обновляем координаты
-            tempMarker.on('dragend', (event) => {
+            // Получаем адрес по координатам
+            showHint('Получение адреса...');
+            const address = await getAddressFromCoords(lat, lng);
+            const addressText = address || `Минск, координаты: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            
+            // Заполняем адрес в форме
+            if (currentMode === 'task') {
+                document.getElementById('taskAddress').value = addressText;
+            } else {
+                document.getElementById('workerAddress').value = addressText;
+            }
+
+            // При перетаскивании обновляем координаты и адрес
+            tempMarker.on('dragend', async (event) => {
                 const pos = event.target.getLatLng();
                 currentCoords = [pos.lat, pos.lng];
+                
+                // Обновляем адрес при перемещении
+                const newAddress = await getAddressFromCoords(pos.lat, pos.lng);
+                const newAddressText = newAddress || `Минск, координаты: ${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+                
+                if (currentMode === 'task') {
+                    document.getElementById('taskAddress').value = newAddressText;
+                } else {
+                    document.getElementById('workerAddress').value = newAddressText;
+                }
             });
 
-            // Показываем форму (адрес вводится вручную)
+            // Показываем форму
             hideHint();
             if (currentMode === 'task') {
                 document.getElementById('taskModal').classList.add('active');
@@ -178,8 +200,57 @@ function closeModal(modalId) {
     }
 }
 
+// Получение адреса по координатам через Nominatim (OpenStreetMap)
+async function getAddressFromCoords(lat, lng) {
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=ru`,
+            {
+                headers: {
+                    'User-Agent': 'MinskJobsApp/1.0'
+                }
+            }
+        );
+        
+        if (!response.ok) {
+            return null;
+        }
+        
+        const data = await response.json();
+        
+        if (data && data.address) {
+            const addr = data.address;
+            let addressParts = [];
+            
+            // Формируем адрес из компонентов
+            if (addr.road) addressParts.push(addr.road);
+            if (addr.house_number) addressParts.push(addr.house_number);
+            if (addr.suburb || addr.neighbourhood) addressParts.push(addr.suburb || addr.neighbourhood);
+            if (addr.city || addr.town) {
+                if (!addressParts.includes(addr.city || addr.town)) {
+                    addressParts.push(addr.city || addr.town);
+                }
+            }
+            
+            if (addressParts.length > 0) {
+                return addressParts.join(', ');
+            }
+            
+            // Если не получилось собрать, используем display_name
+            if (data.display_name) {
+                return data.display_name.split(', ').slice(0, 3).join(', ');
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Ошибка получения адреса:', error);
+        return null;
+    }
+}
+
 // Получение геолокации через браузерный Geolocation API
-function getCurrentLocation(formType) {
+async function getCurrentLocation(formType) {
     if (!navigator.geolocation) {
         alert('Геолокация не поддерживается вашим браузером');
         return;
@@ -191,7 +262,7 @@ function getCurrentLocation(formType) {
     hint.classList.add('active');
     
     navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             currentCoords = [lat, lng];
@@ -215,17 +286,32 @@ function getCurrentLocation(formType) {
             // Центрируем карту
             map.setView([lat, lng], 15);
             
+            // Получаем адрес по координатам
+            hint.textContent = 'Получение адреса...';
+            const address = await getAddressFromCoords(lat, lng);
+            const addressText = address || `Минск, координаты: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            
             // Обновляем адрес (пользователь может отредактировать)
             if (formType === 'task') {
-                document.getElementById('taskAddress').value = `Минск, координаты: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                document.getElementById('taskAddress').value = addressText;
             } else {
-                document.getElementById('workerAddress').value = `Минск, координаты: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                document.getElementById('workerAddress').value = addressText;
             }
             
             // Перемещение маркера
-            tempMarker.on('dragend', () => {
+            tempMarker.on('dragend', async () => {
                 const newLatLng = tempMarker.getLatLng();
                 currentCoords = [newLatLng.lat, newLatLng.lng];
+                
+                // Обновляем адрес при перемещении
+                const newAddress = await getAddressFromCoords(newLatLng.lat, newLatLng.lng);
+                const newAddressText = newAddress || `Минск, координаты: ${newLatLng.lat.toFixed(6)}, ${newLatLng.lng.toFixed(6)}`;
+                
+                if (formType === 'task') {
+                    document.getElementById('taskAddress').value = newAddressText;
+                } else {
+                    document.getElementById('workerAddress').value = newAddressText;
+                }
             });
             
             hideHint();

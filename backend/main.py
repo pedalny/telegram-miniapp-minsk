@@ -51,3 +51,12 @@ async def index():
     index_file = os.path.join(frontend_path, "index.html")
     return FileResponse(index_file)
 
+
+@app.get("/board.html")
+async def board():
+    """
+    Отдаём страницу доски объявлений
+    """
+    board_file = os.path.join(frontend_path, "board.html")
+    return FileResponse(board_file)
+

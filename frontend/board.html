@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Доска объявлений - Подработки в Минске</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+
+        .header {
+            background: white;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .back-button:active {
+            background: #0056b3;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            color: #666;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            font-weight: bold;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .filters {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .filters-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filters-row input,
+        .filters-row select {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .board-listings {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .listing-card {
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+        }
+
+        .listing-card:active {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .listing-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+
+        .listing-card-type {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .listing-card-type.task {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .listing-card-type.worker {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .listing-card-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .listing-card-info {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .listing-card-description {
+            margin-top: 8px;
+            color: #999;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/" class="back-button">← Назад к карте</a>
+        <h1>📋 Доска объявлений</h1>
+        <div class="tabs">
+            <button class="tab active" onclick="switchBoardTab('tasks')">Ищут исполнителей 🔴</button>
+            <button class="tab" onclick="switchBoardTab('workers')">Ищут работу 🟢</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="filters">
+            <div class="filters-row">
+                <input type="text" id="filterSearch" placeholder="Поиск по описанию..." oninput="applyFilters()">
+                <input type="number" id="filterMinPayment" placeholder="Мин. оплата" min="0" step="0.01" oninput="applyFilters()">
+                <select id="filterPaymentType" onchange="applyFilters()">
+                    <option value="">Все типы оплаты</option>
+                    <option value="BYN/час">BYN/час</option>
+                    <option value="BYN/день">BYN/день</option>
+                    <option value="BYN/задача">BYN/задача</option>
+                    <option value="USD/час">USD/час</option>
+                    <option value="USD/день">USD/день</option>
+                    <option value="договорная">Договорная</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="board-listings" id="boardListings">
+            <div class="loading">Загрузка объявлений...</div>
+        </div>
+    </div>
+
+    <script>
+        let allListings = [];
+        let currentBoardTab = 'tasks';
+
+        // Загрузка объявлений при открытии страницы
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadListings();
+        });
+
+        // Загрузка всех объявлений
+        async function loadListings() {
+            try {
+                const response = await fetch('/api/listings');
+                allListings = await response.json();
+                applyFilters();
+            } catch (error) {
+                console.error('Ошибка загрузки объявлений:', error);
+                document.getElementById('boardListings').innerHTML = 
+                    '<div class="empty-state">Ошибка загрузки объявлений</div>';
+            }
+        }
+
+        // Переключение вкладок доски
+        function switchBoardTab(tab) {
+            currentBoardTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            applyFilters();
+        }
+
+        // Применение фильтров
+        function applyFilters() {
+            const searchText = document.getElementById('filterSearch').value.toLowerCase();
+            const minPayment = parseFloat(document.getElementById('filterMinPayment').value) || 0;
+            const paymentType = document.getElementById('filterPaymentType').value;
+            
+            let filtered = allListings.filter(listing => {
+                // Фильтр по типу
+                if (currentBoardTab === 'tasks' && listing.type !== 'task') return false;
+                if (currentBoardTab === 'workers' && listing.type !== 'worker') return false;
+                
+                // Фильтр по поисковому запросу
+                if (searchText && !listing.title.toLowerCase().includes(searchText) && 
+                    !listing.description.toLowerCase().includes(searchText)) {
+                    return false;
+                }
+                
+                // Фильтр по оплате
+                if (minPayment > 0 || paymentType) {
+                    const payment = listing.payment || '';
+                    const paymentLower = payment.toLowerCase();
+                    
+                    // Извлекаем число из строки оплаты
+                    const paymentMatch = payment.match(/(\d+\.?\d*)/);
+                    const paymentAmount = paymentMatch ? parseFloat(paymentMatch[1]) : 0;
+                    
+                    if (minPayment > 0 && paymentAmount < minPayment) return false;
+                    
+                    if (paymentType && !paymentLower.includes(paymentType.toLowerCase())) return false;
+                }
+                
+                return true;
+            });
+            
+            renderBoardListings(filtered);
+        }
+
+        // Рендер списка объявлений на доске
+        function renderBoardListings(listings) {
+            const container = document.getElementById('boardListings');
+            
+            if (listings.length === 0) {
+                container.innerHTML = '<div class="empty-state">Нет объявлений</div>';
+                return;
+            }
+            
+            container.innerHTML = listings.map(listing => {
+                const typeClass = listing.type === 'task' ? 'task' : 'worker';
+                const typeEmoji = listing.type === 'task' ? '🔴' : '🟢';
+                const typeText = listing.type === 'task' ? 'Ищут исполнителя' : 'Ищут работу';
+                
+                return `
+                    <div class="listing-card" onclick="showListingDetail(${listing.id})">
+                        <div class="listing-card-header">
+                            <span class="listing-card-type ${typeClass}">${typeEmoji} ${typeText}</span>
+                        </div>
+                        <div class="listing-card-title">${listing.title}</div>
+                        <div class="listing-card-info">📍 ${listing.address}</div>
+                        <div class="listing-card-info">💰 ${listing.payment}</div>
+                        <div class="listing-card-description">
+                            ${listing.description.substring(0, 150)}${listing.description.length > 150 ? '...' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Показать детали объявления
+        function showListingDetail(listingId) {
+            const listing = allListings.find(l => l.id === listingId);
+            if (!listing) return;
+
+            const details = `
+                ${listing.type === 'task' ? '🔴' : '🟢'} ${listing.title}
+
+📍 ${listing.address}
+💰 ${listing.payment}
+📞 ${listing.contacts}
+
+${listing.description}
+            `.trim();
+
+            alert(details);
+        }
+    </script>
+</body>
+</html>
+
