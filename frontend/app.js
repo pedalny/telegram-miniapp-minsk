@@ -30,6 +30,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initAuth();
     await initMap();
     await loadListings();
+    
+    // Проверяем параметры URL для показа конкретного объявления
+    const urlParams = new URLSearchParams(window.location.search);
+    const showId = urlParams.get('show');
+    const lat = urlParams.get('lat');
+    const lng = urlParams.get('lng');
+    
+    if (showId && lat && lng) {
+        // Ждём загрузки маркеров
+        setTimeout(() => {
+            // Центрируем карту на объявлении
+            map.setView([parseFloat(lat), parseFloat(lng)], 15);
+            
+            // Находим маркер и показываем его popup
+            const marker = markers.find(m => {
+                const listingId = m._listingId;
+                return listingId && listingId.toString() === showId;
+            });
+            
+            if (marker) {
+                marker.openPopup();
+            }
+            
+            // Очищаем URL от параметров
+            window.history.replaceState({}, document.title, '/');
+        }, 500);
+    }
 });
 
 // Авторизация через Telegram
@@ -485,7 +512,25 @@ async function loadListings() {
                 iconAnchor: [9, 9]
             });
 
-            const marker = L.marker([listing.latitude, listing.longitude], { icon })
+            const popupContent = `
+                <div style="padding: 8px; min-width: 200px;">
+                    <strong>${listing.title}</strong><br>
+                    <small>${listing.address}</small><br>
+                    <strong>💰 ${listing.payment}</strong><br>
+                    <button onclick="window.showListingDetail(${listing.id})" style="margin-top: 8px; padding: 6px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%;">
+                        Подробнее
+                    </button>
+                </div>
+            `;
+
+            const marker = L.marker([listing.latitude, listing.longitude], { 
+                icon
+            });
+            
+            // Сохраняем ID объявления в маркере
+            marker._listingId = listing.id;
+            
+            marker.bindPopup(popupContent)
                 .on('click', () => showListingDetail(listing.id))
                 .addTo(map);
 
@@ -496,8 +541,8 @@ async function loadListings() {
     }
 }
 
-// Показать детали объявления
-async function showListingDetail(listingId) {
+// Показать детали объявления (глобальная функция для popup)
+window.showListingDetail = async function(listingId) {
     try {
         const response = await fetch(`/api/listings/${listingId}`);
         const listing = await response.json();
@@ -537,6 +582,11 @@ async function showListingDetail(listingId) {
         console.error('Ошибка загрузки объявления:', error);
         alert('Не удалось загрузить объявление');
     }
+};
+
+// Также создаём обычную функцию для совместимости
+async function showListingDetail(listingId) {
+    return window.showListingDetail(listingId);
 }
 
 // Связаться с пользователем

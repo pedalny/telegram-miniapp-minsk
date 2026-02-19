@@ -104,6 +104,43 @@
             font-size: 14px;
         }
 
+        .filters-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .filters-title {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .reset-filters {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .reset-filters:active {
+            background: #e0e0e0;
+        }
+
+        .results-count {
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #1976d2;
+            text-align: center;
+        }
+
         .board-listings {
             display: flex;
             flex-direction: column;
@@ -167,6 +204,110 @@
             line-height: 1.4;
         }
 
+        .listing-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
+        }
+
+        .listing-card-date {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .btn-show-on-map {
+            padding: 6px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .btn-show-on-map:active {
+            background: #0056b3;
+        }
+
+        .modal-detail {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            overflow-y: auto;
+        }
+
+        .modal-detail.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-detail-content {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-detail-header {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 16px;
+        }
+
+        .modal-detail-info {
+            margin-bottom: 12px;
+            font-size: 15px;
+        }
+
+        .modal-detail-description {
+            margin-top: 16px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            line-height: 1.6;
+        }
+
+        .btn-close-modal {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .btn-contact {
+            width: 100%;
+            padding: 12px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 16px;
+        }
+
+        .btn-contact:active {
+            background: #218838;
+        }
+
         .empty-state {
             text-align: center;
             padding: 40px 20px;
@@ -192,9 +333,16 @@
 
     <div class="container">
         <div class="filters">
+            <div class="filters-header">
+                <span class="filters-title">🔍 Фильтры</span>
+                <button class="reset-filters" onclick="resetFilters()">Сбросить</button>
+            </div>
             <div class="filters-row">
-                <input type="text" id="filterSearch" placeholder="Поиск по описанию..." oninput="applyFilters()">
-                <input type="number" id="filterMinPayment" placeholder="Мин. оплата" min="0" step="0.01" oninput="applyFilters()">
+                <input type="text" id="filterSearch" placeholder="🔎 Поиск по тексту..." oninput="applyFilters()">
+                <input type="text" id="filterAddress" placeholder="📍 Район/адрес..." oninput="applyFilters()">
+            </div>
+            <div class="filters-row">
+                <input type="number" id="filterMinPayment" placeholder="💰 Мин. оплата" min="0" step="0.01" oninput="applyFilters()">
                 <select id="filterPaymentType" onchange="applyFilters()">
                     <option value="">Все типы оплаты</option>
                     <option value="BYN/час">BYN/час</option>
@@ -205,10 +353,35 @@
                     <option value="договорная">Договорная</option>
                 </select>
             </div>
+            <div class="filters-row">
+                <select id="filterDate" onchange="applyFilters()">
+                    <option value="">Все даты</option>
+                    <option value="today">Сегодня</option>
+                    <option value="week">За неделю</option>
+                    <option value="month">За месяц</option>
+                </select>
+                <select id="filterSort" onchange="applyFilters()">
+                    <option value="newest">Сначала новые</option>
+                    <option value="oldest">Сначала старые</option>
+                    <option value="payment_high">По оплате (высокая)</option>
+                    <option value="payment_low">По оплате (низкая)</option>
+                    <option value="title_asc">По алфавиту (А-Я)</option>
+                </select>
+            </div>
         </div>
+
+        <div class="results-count" id="resultsCount" style="display: none;"></div>
 
         <div class="board-listings" id="boardListings">
             <div class="loading">Загрузка объявлений...</div>
+        </div>
+    </div>
+
+    <!-- Модальное окно с деталями объявления -->
+    <div class="modal-detail" id="detailModal">
+        <div class="modal-detail-content">
+            <button class="btn-close-modal" onclick="closeDetailModal()">×</button>
+            <div id="detailContent"></div>
         </div>
     </div>
 
@@ -245,8 +418,11 @@
         // Применение фильтров
         function applyFilters() {
             const searchText = document.getElementById('filterSearch').value.toLowerCase();
+            const addressText = document.getElementById('filterAddress').value.toLowerCase();
             const minPayment = parseFloat(document.getElementById('filterMinPayment').value) || 0;
             const paymentType = document.getElementById('filterPaymentType').value;
+            const dateFilter = document.getElementById('filterDate').value;
+            const sortBy = document.getElementById('filterSort').value;
             
             let filtered = allListings.filter(listing => {
                 // Фильтр по типу
@@ -256,6 +432,11 @@
                 // Фильтр по поисковому запросу
                 if (searchText && !listing.title.toLowerCase().includes(searchText) && 
                     !listing.description.toLowerCase().includes(searchText)) {
+                    return false;
+                }
+                
+                // Фильтр по адресу/району
+                if (addressText && !listing.address.toLowerCase().includes(addressText)) {
                     return false;
                 }
                 
@@ -273,10 +454,79 @@
                     if (paymentType && !paymentLower.includes(paymentType.toLowerCase())) return false;
                 }
                 
+                // Фильтр по дате
+                if (dateFilter && listing.created_at) {
+                    const listingDate = new Date(listing.created_at);
+                    const now = new Date();
+                    const diffTime = now - listingDate;
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    
+                    if (dateFilter === 'today' && diffDays >= 1) return false;
+                    if (dateFilter === 'week' && diffDays >= 7) return false;
+                    if (dateFilter === 'month' && diffDays >= 30) return false;
+                }
+                
                 return true;
             });
             
+            // Сортировка
+            filtered.sort((a, b) => {
+                switch(sortBy) {
+                    case 'newest':
+                        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                    case 'oldest':
+                        return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+                    case 'payment_high':
+                        const aPay = parseFloat((a.payment || '0').match(/(\d+\.?\d*)/)?.[1] || 0);
+                        const bPay = parseFloat((b.payment || '0').match(/(\d+\.?\d*)/)?.[1] || 0);
+                        return bPay - aPay;
+                    case 'payment_low':
+                        const aPayLow = parseFloat((a.payment || '0').match(/(\d+\.?\d*)/)?.[1] || 0);
+                        const bPayLow = parseFloat((b.payment || '0').match(/(\d+\.?\d*)/)?.[1] || 0);
+                        return aPayLow - bPayLow;
+                    case 'title_asc':
+                        return (a.title || '').localeCompare(b.title || '', 'ru');
+                    default:
+                        return 0;
+                }
+            });
+            
+            // Показываем счетчик результатов
+            const countEl = document.getElementById('resultsCount');
+            if (filtered.length !== allListings.length || searchText || addressText || minPayment > 0 || paymentType || dateFilter) {
+                countEl.textContent = `Найдено: ${filtered.length} из ${allListings.length}`;
+                countEl.style.display = 'block';
+            } else {
+                countEl.style.display = 'none';
+            }
+            
             renderBoardListings(filtered);
+        }
+
+        // Сброс фильтров
+        function resetFilters() {
+            document.getElementById('filterSearch').value = '';
+            document.getElementById('filterAddress').value = '';
+            document.getElementById('filterMinPayment').value = '';
+            document.getElementById('filterPaymentType').value = '';
+            document.getElementById('filterDate').value = '';
+            document.getElementById('filterSort').value = 'newest';
+            applyFilters();
+        }
+
+        // Форматирование даты
+        function formatDate(dateString) {
+            if (!dateString) return 'Дата не указана';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffTime = now - date;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return 'Сегодня';
+            if (diffDays === 1) return 'Вчера';
+            if (diffDays < 7) return `${diffDays} дня назад`;
+            if (diffDays < 30) return `${Math.floor(diffDays / 7)} недели назад`;
+            return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
         }
 
         // Рендер списка объявлений на доске
@@ -284,7 +534,7 @@
             const container = document.getElementById('boardListings');
             
             if (listings.length === 0) {
-                container.innerHTML = '<div class="empty-state">Нет объявлений</div>';
+                container.innerHTML = '<div class="empty-state">😔 Нет объявлений по заданным фильтрам</div>';
                 return;
             }
             
@@ -294,15 +544,19 @@
                 const typeText = listing.type === 'task' ? 'Ищут исполнителя' : 'Ищут работу';
                 
                 return `
-                    <div class="listing-card" onclick="showListingDetail(${listing.id})">
+                    <div class="listing-card">
                         <div class="listing-card-header">
                             <span class="listing-card-type ${typeClass}">${typeEmoji} ${typeText}</span>
                         </div>
-                        <div class="listing-card-title">${listing.title}</div>
+                        <div class="listing-card-title" onclick="showListingDetail(${listing.id})">${listing.title}</div>
                         <div class="listing-card-info">📍 ${listing.address}</div>
                         <div class="listing-card-info">💰 ${listing.payment}</div>
-                        <div class="listing-card-description">
-                            ${listing.description.substring(0, 150)}${listing.description.length > 150 ? '...' : ''}
+                        <div class="listing-card-description" onclick="showListingDetail(${listing.id})">
+                            ${listing.description.substring(0, 120)}${listing.description.length > 120 ? '...' : ''}
+                        </div>
+                        <div class="listing-card-footer">
+                            <span class="listing-card-date">📅 ${formatDate(listing.created_at)}</span>
+                            <button class="btn-show-on-map" onclick="showOnMap(${listing.id})">🗺️ На карте</button>
                         </div>
                     </div>
                 `;
@@ -314,17 +568,70 @@
             const listing = allListings.find(l => l.id === listingId);
             if (!listing) return;
 
-            const details = `
-                ${listing.type === 'task' ? '🔴' : '🟢'} ${listing.title}
+            const typeEmoji = listing.type === 'task' ? '🔴' : '🟢';
+            const typeText = listing.type === 'task' ? 'Ищут исполнителя' : 'Ищут работу';
 
-📍 ${listing.address}
-💰 ${listing.payment}
-📞 ${listing.contacts}
+            const detailContent = `
+                <div class="modal-detail-header">
+                    ${typeEmoji} ${listing.title}
+                </div>
+                <div class="modal-detail-info">
+                    <strong>Тип:</strong> ${typeText}
+                </div>
+                <div class="modal-detail-info">
+                    <strong>📍 Адрес:</strong> ${listing.address}
+                </div>
+                <div class="modal-detail-info">
+                    <strong>💰 Оплата:</strong> ${listing.payment}
+                </div>
+                <div class="modal-detail-info">
+                    <strong>📞 Контакты:</strong> ${listing.contacts}
+                </div>
+                <div class="modal-detail-info">
+                    <strong>📅 Опубликовано:</strong> ${formatDate(listing.created_at)}
+                </div>
+                <div class="modal-detail-description">
+                    <strong>Описание:</strong><br>
+                    ${listing.description}
+                </div>
+                <button class="btn-contact" onclick="contactUser('${listing.contacts}')">
+                    📞 Связаться
+                </button>
+                <button class="btn-show-on-map" style="width: 100%; margin-top: 8px;" onclick="showOnMap(${listing.id})">
+                    🗺️ Показать на карте
+                </button>
+            `;
 
-${listing.description}
-            `.trim();
+            document.getElementById('detailContent').innerHTML = detailContent;
+            document.getElementById('detailModal').classList.add('active');
+        }
 
-            alert(details);
+        // Закрыть модальное окно
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        // Связаться с пользователем
+        function contactUser(contacts) {
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                if (contacts.startsWith('@')) {
+                    tg.openTelegramLink(`https://t.me/${contacts.substring(1)}`);
+                } else {
+                    tg.openTelegramLink(`https://t.me/${contacts}`);
+                }
+            } else {
+                alert(`Контакты: ${contacts}\n\nВ Telegram здесь будет открыт чат`);
+            }
+        }
+
+        // Показать на карте
+        function showOnMap(listingId) {
+            const listing = allListings.find(l => l.id === listingId);
+            if (!listing) return;
+            
+            // Переходим на главную страницу с параметром для показа маркера
+            window.location.href = `/?show=${listingId}&lat=${listing.latitude}&lng=${listing.longitude}`;
         }
     </script>
 </body>
