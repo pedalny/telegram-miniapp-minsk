@@ -122,6 +122,15 @@ function initMap() {
             } else {
                 document.getElementById('workerModal').classList.add('active');
             }
+            
+            // Если модальное окно было закрыто для выбора на карте, открываем его снова
+            setTimeout(() => {
+                if (currentMode === 'task' && !document.getElementById('taskModal').classList.contains('active')) {
+                    document.getElementById('taskModal').classList.add('active');
+                } else if (currentMode === 'worker' && !document.getElementById('workerModal').classList.contains('active')) {
+                    document.getElementById('workerModal').classList.add('active');
+                }
+            }, 100);
         });
 
         resolve();
@@ -155,13 +164,79 @@ function hideHint() {
 // Закрыть модальное окно
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('active');
-    currentMode = null;
-    currentCoords = null;
-    currentAddress = null;
     
-    if (tempMarker) {
-        map.removeLayer(tempMarker);
-        tempMarker = null;
+    // Не сбрасываем currentMode и currentCoords, если это доска объявлений или мои объявления
+    if (modalId !== 'boardModal' && modalId !== 'myListingsModal') {
+        currentMode = null;
+        currentCoords = null;
+        currentAddress = null;
+        
+        if (tempMarker) {
+            map.removeLayer(tempMarker);
+            tempMarker = null;
+        }
+    }
+}
+
+// Получение геолокации через Telegram WebApp
+function getCurrentLocation(formType) {
+    if (!isTelegramWebApp || !tg) {
+        alert('Геолокация доступна только в Telegram');
+        return;
+    }
+    
+    tg.requestLocation((location) => {
+        if (location) {
+            const lat = location.latitude;
+            const lng = location.longitude;
+            currentCoords = [lat, lng];
+            
+            // Удаляем предыдущий временный маркер
+            if (tempMarker) {
+                map.removeLayer(tempMarker);
+            }
+            
+            // Создаем маркер
+            const color = formType === 'task' ? 'red' : 'green';
+            const icon = L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            });
+            
+            tempMarker = L.marker([lat, lng], { icon, draggable: true }).addTo(map);
+            
+            // Центрируем карту
+            map.setView([lat, lng], 15);
+            
+            // Обновляем адрес (пользователь может отредактировать)
+            if (formType === 'task') {
+                document.getElementById('taskAddress').value = `Минск, координаты: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            } else {
+                document.getElementById('workerAddress').value = `Минск, координаты: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            }
+            
+            // Перемещение маркера
+            tempMarker.on('dragend', () => {
+                const newLatLng = tempMarker.getLatLng();
+                currentCoords = [newLatLng.lat, newLatLng.lng];
+            });
+        } else {
+            alert('Не удалось получить геолокацию');
+        }
+    });
+}
+
+// Выбор места на карте
+function selectOnMap(formType) {
+    currentMode = formType;
+    showHint('Нажмите на карте, где будет работа');
+    // Закрываем модальное окно временно, чтобы пользователь мог кликнуть на карте
+    if (formType === 'task') {
+        document.getElementById('taskModal').classList.remove('active');
+    } else {
+        document.getElementById('workerModal').classList.remove('active');
     }
 }
 
@@ -170,16 +245,20 @@ async function submitTask(event) {
     event.preventDefault();
     
     if (!currentCoords) {
-        alert('Выберите место на карте');
+        alert('Выберите место на карте или используйте геолокацию');
         return;
     }
+    
+    const amount = document.getElementById('taskPaymentAmount').value;
+    const type = document.getElementById('taskPaymentType').value;
+    const payment = type === 'договорная' ? 'Договорная' : `${amount} ${type}`;
     
     const data = {
         type: 'task',
         title: document.getElementById('taskTitle').value,
         description: document.getElementById('taskDescription').value,
         address: document.getElementById('taskAddress').value,
-        payment: document.getElementById('taskPayment').value,
+        payment: payment,
         contacts: document.getElementById('taskContacts').value,
         latitude: currentCoords[0],
         longitude: currentCoords[1]
@@ -220,16 +299,20 @@ async function submitWorker(event) {
     event.preventDefault();
     
     if (!currentCoords) {
-        alert('Выберите место на карте');
+        alert('Выберите место на карте или используйте геолокацию');
         return;
     }
+    
+    const amount = document.getElementById('workerPaymentAmount').value;
+    const type = document.getElementById('workerPaymentType').value;
+    const payment = type === 'договорная' ? 'Договорная' : `от ${amount} ${type}`;
     
     const data = {
         type: 'worker',
         title: document.getElementById('workerTitle').value,
         description: document.getElementById('workerDescription').value,
         address: document.getElementById('workerAddress').value,
-        payment: document.getElementById('workerPayment').value,
+        payment: payment,
         contacts: document.getElementById('workerContacts').value,
         latitude: currentCoords[0],
         longitude: currentCoords[1]
@@ -465,5 +548,98 @@ async function removeListing(listingId) {
         console.error('Ошибка:', error);
         alert('Ошибка при удалении');
     }
+}
+
+// Глобальные переменные для доски объявлений
+let allListings = [];
+let currentBoardTab = 'tasks';
+
+// Показать доску объявлений
+async function showBoard() {
+    try {
+        const response = await fetch('/api/listings');
+        allListings = await response.json();
+        
+        document.getElementById('boardModal').classList.add('active');
+        applyFilters();
+    } catch (error) {
+        console.error('Ошибка загрузки объявлений:', error);
+        alert('Не удалось загрузить объявления');
+    }
+}
+
+// Переключение вкладок доски
+function switchBoardTab(tab) {
+    currentBoardTab = tab;
+    document.querySelectorAll('#boardModal .tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    applyFilters();
+}
+
+// Применение фильтров
+function applyFilters() {
+    const searchText = document.getElementById('filterSearch').value.toLowerCase();
+    const minPayment = parseFloat(document.getElementById('filterMinPayment').value) || 0;
+    const paymentType = document.getElementById('filterPaymentType').value;
+    
+    let filtered = allListings.filter(listing => {
+        // Фильтр по типу
+        if (currentBoardTab === 'tasks' && listing.type !== 'task') return false;
+        if (currentBoardTab === 'workers' && listing.type !== 'worker') return false;
+        
+        // Фильтр по поисковому запросу
+        if (searchText && !listing.title.toLowerCase().includes(searchText) && 
+            !listing.description.toLowerCase().includes(searchText)) {
+            return false;
+        }
+        
+        // Фильтр по оплате
+        if (minPayment > 0 || paymentType) {
+            const payment = listing.payment || '';
+            const paymentLower = payment.toLowerCase();
+            
+            // Извлекаем число из строки оплаты
+            const paymentMatch = payment.match(/(\d+\.?\d*)/);
+            const paymentAmount = paymentMatch ? parseFloat(paymentMatch[1]) : 0;
+            
+            if (minPayment > 0 && paymentAmount < minPayment) return false;
+            
+            if (paymentType && !paymentLower.includes(paymentType.toLowerCase())) return false;
+        }
+        
+        return true;
+    });
+    
+    renderBoardListings(filtered);
+}
+
+// Рендер списка объявлений на доске
+function renderBoardListings(listings) {
+    const container = document.getElementById('boardListings');
+    
+    if (listings.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Нет объявлений</p>';
+        return;
+    }
+    
+    container.innerHTML = listings.map(listing => {
+        const typeClass = listing.type === 'task' ? 'task' : 'worker';
+        const typeEmoji = listing.type === 'task' ? '🔴' : '🟢';
+        const typeText = listing.type === 'task' ? 'Ищут исполнителя' : 'Ищут работу';
+        
+        return `
+            <div class="listing-card" onclick="showListingDetail(${listing.id})">
+                <div class="listing-card-header">
+                    <span class="listing-card-type ${typeClass}">${typeEmoji} ${typeText}</span>
+                </div>
+                <div class="listing-card-title">${listing.title}</div>
+                <div class="listing-card-info">📍 ${listing.address}</div>
+                <div class="listing-card-info">💰 ${listing.payment}</div>
+                <div class="listing-card-info" style="margin-top: 8px; color: #999; font-size: 12px;">
+                    ${listing.description.substring(0, 100)}${listing.description.length > 100 ? '...' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 

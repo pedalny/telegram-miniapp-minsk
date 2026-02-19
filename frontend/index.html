@@ -266,6 +266,145 @@
             font-size: 14px;
             cursor: pointer;
         }
+
+        .btn-board {
+            bottom: 20px;
+            left: 86px;
+            background: #ff8800;
+            color: white;
+            font-size: 20px;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            background: white;
+        }
+
+        .location-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .btn-location {
+            flex: 1;
+            padding: 10px;
+            background: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-location:active {
+            background: #138496;
+        }
+
+        .payment-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .payment-group input[type="number"] {
+            flex: 2;
+        }
+
+        .payment-group select {
+            flex: 1;
+        }
+
+        .board-container {
+            padding: 16px;
+        }
+
+        .filters {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .filters-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filters-row input,
+        .filters-row select {
+            flex: 1;
+            min-width: 120px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .board-listings {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .listing-card {
+            padding: 16px;
+            margin-bottom: 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #eee;
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+        }
+
+        .listing-card:active {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .listing-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+
+        .listing-card-type {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .listing-card-type.task {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .listing-card-type.worker {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .listing-card-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .listing-card-info {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>
@@ -274,7 +413,8 @@
     <!-- Плавающие кнопки -->
     <button class="floating-button btn-task" onclick="startPlaceTask()" title="Поставить задачу">🔴</button>
     <button class="floating-button btn-worker" onclick="startPlaceWorker()" title="Я ищу работу">🟢</button>
-    <button class="floating-button btn-my-listings" onclick="showMyListings()" title="Мои объявления">📋</button>
+    <button class="floating-button btn-board" onclick="showBoard()" title="Доска объявлений">📋</button>
+    <button class="floating-button btn-my-listings" onclick="showMyListings()" title="Мои объявления">⭐</button>
 
     <!-- Подсказка -->
     <div class="hint" id="hint">Нажмите на карте, где будет работа</div>
@@ -294,12 +434,30 @@
                     <textarea id="taskDescription" required placeholder="Подробное описание задачи"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>📍 Адрес (введите вручную)</label>
+                    <label>📍 Адрес</label>
                     <input type="text" id="taskAddress" required placeholder="Например: Минск, ул. Ленина, 1">
+                    <div class="location-buttons">
+                        <button type="button" class="btn-location" onclick="getCurrentLocation('task')">
+                            📍 Моя геолокация
+                        </button>
+                        <button type="button" class="btn-location" onclick="selectOnMap('task')">
+                            🗺️ Выбрать на карте
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>💰 Оплата</label>
-                    <input type="text" id="taskPayment" required placeholder="Например: 20 BYN/час">
+                    <div class="payment-group">
+                        <input type="number" id="taskPaymentAmount" required placeholder="Сумма" min="0" step="0.01">
+                        <select id="taskPaymentType" required>
+                            <option value="BYN/час">BYN/час</option>
+                            <option value="BYN/день">BYN/день</option>
+                            <option value="BYN/задача">BYN/задача</option>
+                            <option value="USD/час">USD/час</option>
+                            <option value="USD/день">USD/день</option>
+                            <option value="договорная">Договорная</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>📞 Контакты</label>
@@ -325,12 +483,30 @@
                     <textarea id="workerDescription" required placeholder="О себе и опыте работы"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>📍 Зона работы (введите вручную)</label>
+                    <label>📍 Зона работы</label>
                     <input type="text" id="workerAddress" required placeholder="Например: Минск, район Уручье">
+                    <div class="location-buttons">
+                        <button type="button" class="btn-location" onclick="getCurrentLocation('worker')">
+                            📍 Моя геолокация
+                        </button>
+                        <button type="button" class="btn-location" onclick="selectOnMap('worker')">
+                            🗺️ Выбрать на карте
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>💸 Оплата</label>
-                    <input type="text" id="workerPayment" required placeholder="Например: от 15 BYN/час">
+                    <div class="payment-group">
+                        <input type="number" id="workerPaymentAmount" required placeholder="От суммы" min="0" step="0.01">
+                        <select id="workerPaymentType" required>
+                            <option value="BYN/час">BYN/час</option>
+                            <option value="BYN/день">BYN/день</option>
+                            <option value="BYN/задача">BYN/задача</option>
+                            <option value="USD/час">USD/час</option>
+                            <option value="USD/день">USD/день</option>
+                            <option value="договорная">Договорная</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>📞 Контакты</label>
@@ -346,6 +522,36 @@
         <div class="modal-content">
             <button class="btn-close" onclick="closeModal('detailModal')">×</button>
             <div class="listing-detail" id="listingDetail"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно "Доска объявлений" -->
+    <div class="modal" id="boardModal">
+        <div class="modal-content">
+            <button class="btn-close" onclick="closeModal('boardModal')">×</button>
+            <div class="modal-header">📋 Доска объявлений</div>
+            <div class="board-container">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchBoardTab('tasks')">Ищут исполнителей 🔴</button>
+                    <button class="tab" onclick="switchBoardTab('workers')">Ищут работу 🟢</button>
+                </div>
+                <div class="filters">
+                    <div class="filters-row">
+                        <input type="text" id="filterSearch" placeholder="Поиск по описанию..." oninput="applyFilters()">
+                        <input type="number" id="filterMinPayment" placeholder="Мин. оплата" min="0" step="0.01" oninput="applyFilters()">
+                        <select id="filterPaymentType" onchange="applyFilters()">
+                            <option value="">Все типы оплаты</option>
+                            <option value="BYN/час">BYN/час</option>
+                            <option value="BYN/день">BYN/день</option>
+                            <option value="BYN/задача">BYN/задача</option>
+                            <option value="USD/час">USD/час</option>
+                            <option value="USD/день">USD/день</option>
+                            <option value="договорная">Договорная</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="board-listings" id="boardListings"></div>
+            </div>
         </div>
     </div>
 
