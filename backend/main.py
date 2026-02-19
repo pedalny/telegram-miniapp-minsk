@@ -33,8 +33,22 @@ if os.path.exists(frontend_path):
 @app.on_event("startup")
 async def startup_event():
     """Инициализация базы данных при запуске"""
-    init_db()
-    print("База данных инициализирована")
+    import os
+    from .database import DB_TYPE, DATABASE_URL
+    
+    print("=" * 50)
+    print("🚀 Запуск приложения...")
+    print(f"📦 DB_TYPE из env: {os.getenv('DB_TYPE', 'не установлен')}")
+    print(f"📦 DATABASE_URL из env: {'установлен' if os.getenv('DATABASE_URL') else 'НЕ УСТАНОВЛЕН!'}")
+    print("=" * 50)
+    
+    try:
+        init_db()
+        print("✅ Приложение готово к работе")
+    except Exception as e:
+        print(f"❌ КРИТИЧЕСКАЯ ОШИБКА при инициализации БД: {e}")
+        print("⚠️  Проверьте переменные окружения на Render!")
+        raise
 
 
 @app.get("/api/health")

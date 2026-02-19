@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -11,11 +11,23 @@ DB_TYPE = os.getenv("DB_TYPE", "sqlite").lower()
 
 if DB_TYPE == "postgresql":
     # Использование PostgreSQL (если доступен)
-    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/minsk_jobs_db")
+    DATABASE_URL = os.getenv("DATABASE_URL")
+    if not DATABASE_URL:
+        raise ValueError("❌ DATABASE_URL не установлен! Установите переменную окружения DATABASE_URL для PostgreSQL.")
+    
+    # Проверяем, что это действительно PostgreSQL URL
+    if not DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgres://"):
+        raise ValueError(f"❌ Неверный формат DATABASE_URL для PostgreSQL: {DATABASE_URL[:50]}...")
+    
+    print(f"📊 Используется PostgreSQL")
+    print(f"📊 DATABASE_URL: {DATABASE_URL[:50]}..." if len(DATABASE_URL) > 50 else f"📊 DATABASE_URL: {DATABASE_URL}")
     engine = create_engine(DATABASE_URL)
 else:
     # Использование SQLite (по умолчанию, не требует установки)
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./minsk_jobs.db")
+    print(f"📊 Используется SQLite")
+    print(f"⚠️  ВНИМАНИЕ: SQLite на Render теряет данные при перезапуске!")
+    print(f"📊 DATABASE_URL: {DATABASE_URL}")
     engine = create_engine(
         DATABASE_URL,
         connect_args={"check_same_thread": False}  # Нужно для SQLite с FastAPI
@@ -37,6 +49,16 @@ def get_db():
 
 def init_db():
     """Создание всех таблиц в базе данных"""
-    Base.metadata.create_all(bind=engine)
-    print(f"База данных инициализирована: {DB_TYPE.upper()}")
+    try:
+        Base.metadata.create_all(bind=engine)
+        print(f"✅ База данных инициализирована: {DB_TYPE.upper()}")
+        print(f"📊 DATABASE_URL: {DATABASE_URL[:50]}..." if len(DATABASE_URL) > 50 else f"📊 DATABASE_URL: {DATABASE_URL}")
+        
+        # Проверяем подключение
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            print("✅ Подключение к базе данных успешно!")
+    except Exception as e:
+        print(f"❌ Ошибка инициализации базы данных: {e}")
+        raise
 
