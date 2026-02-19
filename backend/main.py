@@ -40,6 +40,7 @@ async def startup_event():
     print("🚀 Запуск приложения...")
     print(f"📦 DB_TYPE из env: {os.getenv('DB_TYPE', 'не установлен')}")
     print(f"📦 DATABASE_URL из env: {'установлен' if os.getenv('DATABASE_URL') else 'НЕ УСТАНОВЛЕН!'}")
+    print("🧪 Тест сохранения данных: версия 1.1")
     print("=" * 50)
     
     try:
