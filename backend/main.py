@@ -34,17 +34,28 @@ if os.path.exists(frontend_path):
 async def startup_event():
     """Инициализация JSON хранилища при запуске"""
     import os
-    from .json_storage import DATA_PATH
+    from .json_storage import DATA_PATH, DATA_DIR, DATA_FILE
     
     print("=" * 50)
     print("🚀 Запуск приложения...")
     print(f"📁 Хранилище данных: JSON файл")
-    print(f"📁 Путь к файлу: {DATA_PATH}")
+    print(f"📁 Директория: {DATA_DIR}")
+    print(f"📁 Файл: {DATA_FILE}")
+    print(f"📁 Полный путь: {DATA_PATH}")
+    print(f"📁 Директория существует: {os.path.exists(DATA_DIR)}")
+    print(f"📁 Файл существует: {os.path.exists(DATA_PATH)}")
     print("=" * 50)
     
     try:
         # Создаем файл данных если его нет
         _ensure_data_file()
+        
+        # Проверяем, что файл действительно создан
+        if os.path.exists(DATA_PATH):
+            file_size = os.path.getsize(DATA_PATH)
+            print(f"✅ Файл данных создан/найден: {DATA_PATH} (размер: {file_size} байт)")
+        else:
+            print(f"⚠️  ВНИМАНИЕ: файл данных не найден после создания!")
         
         # Показываем статистику
         stats = get_stats()

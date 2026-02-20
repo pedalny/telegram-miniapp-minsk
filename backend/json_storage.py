@@ -9,11 +9,25 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 
 # Путь к файлу данных
-# На Render используем текущую директорию (постоянное хранилище)
+# На Render используем текущую директорию проекта (постоянное хранилище)
 # Можно переопределить через переменные окружения DATA_DIR и DATA_FILE
 DATA_FILE = os.getenv("DATA_FILE", "data.json")
-DATA_DIR = os.getenv("DATA_DIR", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Определяем директорию для данных
+# На Render лучше использовать корень проекта или /tmp (но /tmp очищается)
+# Используем корень проекта, где находится backend/
+if os.getenv("DATA_DIR"):
+    DATA_DIR = os.getenv("DATA_DIR")
+else:
+    # Получаем корень проекта (на уровень выше backend/)
+    current_file_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_file_dir)
+    DATA_DIR = project_root
+
 DATA_PATH = os.path.join(DATA_DIR, DATA_FILE)
+
+# Логируем путь при импорте модуля
+print(f"📁 JSON Storage: файл данных будет в {DATA_PATH}")
 
 # Блокировка для потокобезопасной записи
 _file_lock = threading.Lock()
@@ -50,12 +64,29 @@ def _load_data() -> Dict[str, Any]:
 def _save_data(data: Dict[str, Any]):
     """Сохраняет данные в JSON файл"""
     with _file_lock:
-        # Создаем временный файл для атомарной записи
-        temp_path = DATA_PATH + ".tmp"
-        with open(temp_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        # Атомарно заменяем старый файл новым
-        os.replace(temp_path, DATA_PATH)
+        try:
+            # Убеждаемся, что директория существует
+            os.makedirs(DATA_DIR, exist_ok=True)
+            
+            # Создаем временный файл для атомарной записи
+            temp_path = DATA_PATH + ".tmp"
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            # Атомарно заменяем старый файл новым
+            os.replace(temp_path, DATA_PATH)
+            
+            # Проверяем, что файл действительно записан
+            if os.path.exists(DATA_PATH):
+                file_size = os.path.getsize(DATA_PATH)
+                print(f"💾 Данные сохранены в {DATA_PATH} (размер: {file_size} байт)")
+            else:
+                print(f"❌ ОШИБКА: файл {DATA_PATH} не найден после сохранения!")
+        except Exception as e:
+            print(f"❌ Ошибка при сохранении данных: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
 
 # ========== Работа с пользователями ==========
@@ -131,7 +162,11 @@ def create_listing(
     status: str = "active"
 ) -> Dict[str, Any]:
     """Создает новое объявление"""
+    print(f"📝 Создание объявления: тип={listing_type}, заголовок={title[:30]}...")
+    print(f"📁 Путь к файлу данных: {DATA_PATH}")
+    
     data = _load_data()
+    print(f"📊 Текущее состояние: пользователей={len(data['users'])}, объявлений={len(data['listings'])}")
     
     listing = {
         "id": data["next_listing_id"],
@@ -150,7 +185,16 @@ def create_listing(
     
     data["listings"].append(listing)
     data["next_listing_id"] += 1
+    
+    print(f"💾 Сохранение объявления ID={listing['id']}...")
     _save_data(data)
+    
+    # Проверяем, что данные действительно сохранились
+    verify_data = _load_data()
+    if len(verify_data["listings"]) != len(data["listings"]):
+        print(f"❌ ОШИБКА: количество объявлений не совпадает! Было: {len(data['listings'])}, Стало: {len(verify_data['listings'])}")
+    else:
+        print(f"✅ Проверка: объявление успешно сохранено, всего объявлений: {len(verify_data['listings'])}")
     
     return listing
 

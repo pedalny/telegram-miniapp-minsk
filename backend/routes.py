@@ -171,26 +171,44 @@ async def create_listing(
     - В Telegram Mini App используется проверка initData.
     - При локальном тестировании (без Telegram) создаётся/используется тестовый пользователь.
     """
+    print("=" * 50)
+    print("📥 Получен запрос на создание объявления")
+    print(f"   Тип: {listing.type}")
+    print(f"   Заголовок: {listing.title}")
+    print(f"   Координаты: lat={listing.latitude}, lng={listing.longitude}")
+    print(f"   Init Data: {'есть' if init_data else 'нет (локальный режим)'}")
+    
     user = None
 
     if init_data:
         # Боевой режим — проверяем подпись Telegram
+        print("🔐 Проверка данных Telegram...")
         user_data = verify_telegram_webapp_data(init_data)
         if not user_data:
+            print("❌ Ошибка проверки Telegram данных")
             raise HTTPException(status_code=401, detail="Неверные данные Telegram")
 
         telegram_id = user_data.get("id")
         username = user_data.get("username")
+        print(f"👤 Telegram ID: {telegram_id}, Username: {username}")
+        
         user = get_user_by_telegram_id(telegram_id)
 
         if not user:
+            print("➕ Создание нового пользователя...")
             user = create_user(telegram_id, username)
+        else:
+            print(f"✅ Пользователь найден: ID={user['id']}")
     else:
         # Локальное тестирование без Telegram
+        print("🧪 Локальный режим тестирования")
         telegram_id = 999999999
         user = get_user_by_telegram_id(telegram_id)
         if not user:
+            print("➕ Создание тестового пользователя...")
             user = create_user(telegram_id, "local_test")
+        else:
+            print(f"✅ Тестовый пользователь найден: ID={user['id']}")
     
     if listing.type not in ["task", "worker"]:
         raise HTTPException(status_code=400, detail="Тип должен быть 'task' или 'worker'")
