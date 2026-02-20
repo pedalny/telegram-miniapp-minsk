@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 # Импортируем JSON хранилище вместо БД
 from .json_storage import (
     get_user_by_telegram_id,
+    get_user_by_id,
     create_user,
     get_listings as get_listings_from_storage,
     create_listing as create_listing_in_storage,
