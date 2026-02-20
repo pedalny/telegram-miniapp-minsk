@@ -1,6 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 from typing import Optional
 import hmac
 import hashlib
@@ -9,10 +8,18 @@ import os
 from urllib.parse import unquote
 from dotenv import load_dotenv
 
-# Импортируем из текущего пакета backend
-from .database import get_db
-from .models import User, Listing
-from .schemas import UserCreate, ListingCreate, ListingResponse
+# Импортируем JSON хранилище вместо БД
+from .json_storage import (
+    get_user_by_telegram_id,
+    create_user,
+    get_listings as get_listings_from_storage,
+    create_listing as create_listing_in_storage,
+    get_listing_by_id,
+    get_user_listings,
+    update_listing_status,
+    get_stats
+)
+from .schemas import ListingCreate
 
 load_dotenv()
 
@@ -80,8 +87,7 @@ def verify_telegram_webapp_data(init_data: str) -> Optional[dict]:
 
 @router.post("/api/auth/telegram")
 async def auth_telegram(
-    init_data: str = Header(..., alias="X-Telegram-Init-Data"),
-    db: Session = Depends(get_db)
+    init_data: str = Header(..., alias="X-Telegram-Init-Data")
 ):
     """
     Авторизация через Telegram WebApp
@@ -98,55 +104,56 @@ async def auth_telegram(
         raise HTTPException(status_code=400, detail="Отсутствует telegram_id")
     
     # Ищем или создаем пользователя
-    user = db.query(User).filter(User.telegram_id == telegram_id).first()
+    user = get_user_by_telegram_id(telegram_id)
     
     if not user:
-        user = User(telegram_id=telegram_id, username=username)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    elif username and user.username != username:
+        user = create_user(telegram_id, username)
+    elif username and user.get("username") != username:
         # Обновляем username если изменился
-        user.username = username
-        db.commit()
+        from .json_storage import update_user_username
+        update_user_username(user["id"], username)
+        user["username"] = username
     
     return {
-        "user_id": user.id,
-        "telegram_id": user.telegram_id,
-        "username": user.username
+        "user_id": user["id"],
+        "telegram_id": user["telegram_id"],
+        "username": user.get("username")
     }
 
 
 @router.get("/api/listings")
 async def get_listings(
-    db: Session = Depends(get_db),
     type: Optional[str] = None,
     status: str = "active"
 ):
     """
     Получить все активные объявления (или фильтр по типу)
     """
-    query = db.query(Listing).filter(Listing.status == status)
+    listings = get_listings_from_storage(listing_type=type, status=status)
     
-    if type:
-        query = query.filter(Listing.type == type)
+    print(f"📊 Запрос объявлений: найдено {len(listings)} активных объявлений (статус='{status}')")
+    if listings:
+        for listing in listings:
+            print(f"  - ID={listing['id']}, тип={listing['type']}, заголовок={listing['title'][:30]}..., пользователь_id={listing['user_id']}")
+    else:
+        print("  ⚠️  Объявлений не найдено")
     
-    listings = query.all()
-    
+    # Добавляем username к каждому объявлению
     result = []
     for listing in listings:
+        user = get_user_by_id(listing["user_id"])
         result.append({
-            "id": listing.id,
-            "type": listing.type,
-            "title": listing.title,
-            "description": listing.description,
-            "address": listing.address,
-            "payment": listing.payment,
-            "contacts": listing.contacts,
-            "latitude": listing.latitude,
-            "longitude": listing.longitude,
-            "username": listing.user.username if listing.user else None,
-            "created_at": listing.created_at.isoformat() if listing.created_at else None
+            "id": listing["id"],
+            "type": listing["type"],
+            "title": listing["title"],
+            "description": listing["description"],
+            "address": listing["address"],
+            "payment": listing["payment"],
+            "contacts": listing["contacts"],
+            "latitude": listing["latitude"],
+            "longitude": listing["longitude"],
+            "username": user.get("username") if user else None,
+            "created_at": listing.get("created_at")
         })
     
     return result
@@ -155,8 +162,7 @@ async def get_listings(
 @router.post("/api/listings")
 async def create_listing(
     listing: ListingCreate,
-    init_data: Optional[str] = Header(None, alias="X-Telegram-Init-Data"),
-    db: Session = Depends(get_db)
+    init_data: Optional[str] = Header(None, alias="X-Telegram-Init-Data")
 ):
     """
     Создать новое объявление (задачу или исполнителя).
@@ -173,56 +179,62 @@ async def create_listing(
 
         telegram_id = user_data.get("id")
         username = user_data.get("username")
-        user = db.query(User).filter(User.telegram_id == telegram_id).first()
+        user = get_user_by_telegram_id(telegram_id)
 
         if not user:
-            user = User(telegram_id=telegram_id, username=username)
-            db.add(user)
-            db.commit()
-            db.refresh(user)
+            user = create_user(telegram_id, username)
     else:
         # Локальное тестирование без Telegram
         telegram_id = 999999999
-        user = db.query(User).filter(User.telegram_id == telegram_id).first()
+        user = get_user_by_telegram_id(telegram_id)
         if not user:
-            user = User(telegram_id=telegram_id, username="local_test")
-            db.add(user)
-            db.commit()
-            db.refresh(user)
+            user = create_user(telegram_id, "local_test")
     
     if listing.type not in ["task", "worker"]:
         raise HTTPException(status_code=400, detail="Тип должен быть 'task' или 'worker'")
     
-    # Создаем объявление
-    db_listing = Listing(
-        user_id=user.id,
-        type=listing.type,
-        title=listing.title,
-        description=listing.description,
-        address=listing.address,
-        payment=listing.payment,
-        contacts=listing.contacts,
-        latitude=listing.latitude,
-        longitude=listing.longitude,
-        status="active"
-    )
-    
-    db.add(db_listing)
-    db.commit()
-    db.refresh(db_listing)
-    
-    return {
-        "id": db_listing.id,
-        "type": db_listing.type,
-        "title": db_listing.title,
-        "status": db_listing.status
-    }
+    try:
+        # Создаем объявление
+        db_listing = create_listing_in_storage(
+            user_id=user["id"],
+            listing_type=listing.type,
+            title=listing.title,
+            description=listing.description,
+            address=listing.address,
+            payment=listing.payment,
+            contacts=listing.contacts,
+            latitude=listing.latitude,
+            longitude=listing.longitude,
+            status="active"
+        )
+        
+        print(f"✅ Объявление создано: ID={db_listing['id']}, тип={db_listing['type']}, заголовок={db_listing['title']}")
+        print(f"📍 Координаты: lat={db_listing['latitude']}, lng={db_listing['longitude']}")
+        print(f"👤 Пользователь ID: {user['id']}, telegram_id: {user['telegram_id']}")
+        
+        # Проверяем, что объявление действительно сохранено
+        check_listing = get_listing_by_id(db_listing["id"])
+        if check_listing:
+            print(f"✅ Проверка: объявление найдено после сохранения, ID={check_listing['id']}")
+        else:
+            print(f"❌ ОШИБКА: объявление НЕ найдено после сохранения!")
+        
+        return {
+            "id": db_listing["id"],
+            "type": db_listing["type"],
+            "title": db_listing["title"],
+            "status": db_listing["status"]
+        }
+    except Exception as e:
+        print(f"❌ Ошибка при сохранении объявления: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Ошибка сохранения объявления: {str(e)}")
 
 
 @router.get("/api/listings/my")
 async def get_my_listings(
-    init_data: Optional[str] = Header(None, alias="X-Telegram-Init-Data"),
-    db: Session = Depends(get_db)
+    init_data: Optional[str] = Header(None, alias="X-Telegram-Init-Data")
 ):
     """
     Получить все объявления текущего пользователя.
@@ -236,32 +248,29 @@ async def get_my_listings(
         if not user_data:
             raise HTTPException(status_code=401, detail="Неверные данные Telegram")
         telegram_id = user_data.get("id")
-        user = db.query(User).filter(User.telegram_id == telegram_id).first()
+        user = get_user_by_telegram_id(telegram_id)
     else:
         telegram_id = 999999999
-        user = db.query(User).filter(User.telegram_id == telegram_id).first()
+        user = get_user_by_telegram_id(telegram_id)
     
     if not user:
         return []
     
-    listings = db.query(Listing).filter(
-        Listing.user_id == user.id,
-        Listing.status == "active"
-    ).all()
+    listings = get_user_listings(user["id"], status="active")
     
     result = []
     for listing in listings:
         result.append({
-            "id": listing.id,
-            "type": listing.type,
-            "title": listing.title,
-            "description": listing.description,
-            "address": listing.address,
-            "payment": listing.payment,
-            "contacts": listing.contacts,
-            "latitude": listing.latitude,
-            "longitude": listing.longitude,
-            "created_at": listing.created_at.isoformat() if listing.created_at else None
+            "id": listing["id"],
+            "type": listing["type"],
+            "title": listing["title"],
+            "description": listing["description"],
+            "address": listing["address"],
+            "payment": listing["payment"],
+            "contacts": listing["contacts"],
+            "latitude": listing["latitude"],
+            "longitude": listing["longitude"],
+            "created_at": listing.get("created_at")
         })
     
     return result
@@ -270,8 +279,7 @@ async def get_my_listings(
 @router.delete("/api/listings/{listing_id}")
 async def delete_listing(
     listing_id: int,
-    init_data: Optional[str] = Header(None, alias="X-Telegram-Init-Data"),
-    db: Session = Depends(get_db)
+    init_data: Optional[str] = Header(None, alias="X-Telegram-Init-Data")
 ):
     """
     Удалить (снять) объявление.
@@ -283,55 +291,49 @@ async def delete_listing(
         if not user_data:
             raise HTTPException(status_code=401, detail="Неверные данные Telegram")
         telegram_id = user_data.get("id")
-        user = db.query(User).filter(User.telegram_id == telegram_id).first()
+        user = get_user_by_telegram_id(telegram_id)
     else:
         telegram_id = 999999999
-        user = db.query(User).filter(User.telegram_id == telegram_id).first()
+        user = get_user_by_telegram_id(telegram_id)
     
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
-    listing = db.query(Listing).filter(
-        Listing.id == listing_id,
-        Listing.user_id == user.id
-    ).first()
+    listing = get_listing_by_id(listing_id)
     
     if not listing:
         raise HTTPException(status_code=404, detail="Объявление не найдено")
     
-    listing.status = "closed"
-    db.commit()
+    if listing["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Нет доступа к этому объявлению")
+    
+    update_listing_status(listing_id, "closed")
     
     return {"message": "Объявление снято с публикации"}
 
 
 @router.get("/api/listings/{listing_id}")
-async def get_listing(
-    listing_id: int,
-    db: Session = Depends(get_db)
-):
+async def get_listing(listing_id: int):
     """
     Получить одно объявление по ID
     """
-    listing = db.query(Listing).filter(
-        Listing.id == listing_id,
-        Listing.status == "active"
-    ).first()
+    listing = get_listing_by_id(listing_id)
     
-    if not listing:
+    if not listing or listing.get("status") != "active":
         raise HTTPException(status_code=404, detail="Объявление не найдено")
     
+    user = get_user_by_id(listing["user_id"])
+    
     return {
-        "id": listing.id,
-        "type": listing.type,
-        "title": listing.title,
-        "description": listing.description,
-        "address": listing.address,
-        "payment": listing.payment,
-        "contacts": listing.contacts,
-        "latitude": listing.latitude,
-        "longitude": listing.longitude,
-        "username": listing.user.username if listing.user else None,
-        "created_at": listing.created_at.isoformat() if listing.created_at else None
+        "id": listing["id"],
+        "type": listing["type"],
+        "title": listing["title"],
+        "description": listing["description"],
+        "address": listing["address"],
+        "payment": listing["payment"],
+        "contacts": listing["contacts"],
+        "latitude": listing["latitude"],
+        "longitude": listing["longitude"],
+        "username": user.get("username") if user else None,
+        "created_at": listing.get("created_at")
     }
-

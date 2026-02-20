@@ -6,7 +6,7 @@ import os
 
 # Импортируем модули как часть пакета backend
 from .routes import router
-from .database import init_db
+from .json_storage import _ensure_data_file, get_stats
 
 app = FastAPI(title="Minsk Jobs Telegram Mini App")
 
@@ -32,23 +32,31 @@ if os.path.exists(frontend_path):
 
 @app.on_event("startup")
 async def startup_event():
-    """Инициализация базы данных при запуске"""
+    """Инициализация JSON хранилища при запуске"""
     import os
-    from .database import DB_TYPE, DATABASE_URL
+    from .json_storage import DATA_PATH
     
     print("=" * 50)
     print("🚀 Запуск приложения...")
-    print(f"📦 DB_TYPE из env: {os.getenv('DB_TYPE', 'не установлен')}")
-    print(f"📦 DATABASE_URL из env: {'установлен' if os.getenv('DATABASE_URL') else 'НЕ УСТАНОВЛЕН!'}")
-    print("🧪 Тест сохранения данных: версия 1.1")
+    print(f"📁 Хранилище данных: JSON файл")
+    print(f"📁 Путь к файлу: {DATA_PATH}")
     print("=" * 50)
     
     try:
-        init_db()
+        # Создаем файл данных если его нет
+        _ensure_data_file()
+        
+        # Показываем статистику
+        stats = get_stats()
+        print(f"👥 Пользователей в хранилище: {stats['users_count']}")
+        print(f"📋 Всего объявлений: {stats['listings_count']}")
+        print(f"✅ Активных объявлений: {stats['active_listings_count']}")
         print("✅ Приложение готово к работе")
+        print("=" * 50)
     except Exception as e:
-        print(f"❌ КРИТИЧЕСКАЯ ОШИБКА при инициализации БД: {e}")
-        print("⚠️  Проверьте переменные окружения на Render!")
+        print(f"❌ КРИТИЧЕСКАЯ ОШИБКА при инициализации хранилища: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 

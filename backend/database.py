@@ -50,15 +50,44 @@ def get_db():
 def init_db():
     """Создание всех таблиц в базе данных"""
     try:
-        Base.metadata.create_all(bind=engine)
-        print(f"✅ База данных инициализирована: {DB_TYPE.upper()}")
+        print("=" * 50)
+        print(f"📊 Используется {DB_TYPE.upper()}")
         print(f"📊 DATABASE_URL: {DATABASE_URL[:50]}..." if len(DATABASE_URL) > 50 else f"📊 DATABASE_URL: {DATABASE_URL}")
         
         # Проверяем подключение
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1"))
             print("✅ Подключение к базе данных успешно!")
+        
+        # Создаем таблицы
+        Base.metadata.create_all(bind=engine)
+        print(f"✅ База данных инициализирована: {DB_TYPE.upper()}")
+        
+        # Проверяем количество данных в БД (только для PostgreSQL)
+        if DB_TYPE == "postgresql":
+            try:
+                with engine.connect() as conn:
+                    # Проверяем количество пользователей
+                    users_result = conn.execute(text("SELECT COUNT(*) FROM users"))
+                    users_count = users_result.scalar()
+                    print(f"👥 Пользователей в БД: {users_count}")
+                    
+                    # Проверяем количество объявлений
+                    listings_result = conn.execute(text("SELECT COUNT(*) FROM listings"))
+                    listings_count = listings_result.scalar()
+                    print(f"📋 Всего объявлений в БД: {listings_count}")
+                    
+                    # Проверяем активные объявления
+                    active_result = conn.execute(text("SELECT COUNT(*) FROM listings WHERE status = 'active'"))
+                    active_count = active_result.scalar()
+                    print(f"✅ Активных объявлений: {active_count}")
+            except Exception as e:
+                print(f"⚠️  Не удалось проверить данные в БД: {e}")
+        
+        print("=" * 50)
     except Exception as e:
         print(f"❌ Ошибка инициализации базы данных: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
