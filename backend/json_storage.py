@@ -212,3 +212,28 @@ def get_stats() -> Dict[str, int]:
         "active_listings_count": len([l for l in data["listings"] if l.get("status") == "active"])
     }
 
+
+def get_all_data() -> Dict[str, Any]:
+    """Получает все данные из файла (для просмотра)"""
+    return _load_data()
+
+
+def get_file_path() -> str:
+    """Возвращает путь к файлу данных"""
+    return DATA_PATH
+
+
+def get_file_info() -> Dict[str, Any]:
+    """Возвращает информацию о файле данных"""
+    file_exists = os.path.exists(DATA_PATH)
+    file_size = os.path.getsize(DATA_PATH) if file_exists else 0
+    stats = get_stats()
+    
+    return {
+        "file_path": DATA_PATH,
+        "file_exists": file_exists,
+        "file_size_bytes": file_size,
+        "file_size_kb": round(file_size / 1024, 2) if file_exists else 0,
+        "stats": stats
+    }
+

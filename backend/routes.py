@@ -17,7 +17,9 @@ from .json_storage import (
     get_listing_by_id,
     get_user_listings,
     update_listing_status,
-    get_stats
+    get_stats,
+    get_all_data,
+    get_file_info
 )
 from .schemas import ListingCreate
 
@@ -337,3 +339,32 @@ async def get_listing(listing_id: int):
         "username": user.get("username") if user else None,
         "created_at": listing.get("created_at")
     }
+
+
+@router.get("/api/admin/data")
+async def get_all_data_endpoint():
+    """
+    Получить все данные из JSON файла (для просмотра состояния)
+    ВАЖНО: В продакшене лучше защитить этот endpoint паролем!
+    """
+    try:
+        data = get_all_data()
+        file_info = get_file_info()
+        return {
+            "file_info": file_info,
+            "data": data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка чтения данных: {str(e)}")
+
+
+@router.get("/api/admin/stats")
+async def get_stats_endpoint():
+    """
+    Получить статистику и информацию о файле данных
+    """
+    try:
+        file_info = get_file_info()
+        return file_info
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка получения статистики: {str(e)}")
