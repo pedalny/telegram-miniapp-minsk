@@ -545,6 +545,49 @@
         .job-popup-button:active {
             background: #0056b3;
         }
+
+        /* Адаптация под разные размеры экранов */
+        @media (max-width: 400px) {
+            .map-filters {
+                top: 8px;
+                transform: translateX(-50%) scale(0.95);
+            }
+
+            .map-filter-button {
+                padding: 4px 10px;
+                font-size: 12px;
+            }
+
+            .floating-button {
+                width: 52px;
+                height: 52px;
+                font-size: 20px;
+            }
+
+            .modal-content {
+                padding: 16px;
+            }
+        }
+
+        @media (max-height: 600px) {
+            .modal-content {
+                max-height: 80vh;
+            }
+
+            .modal-header {
+                font-size: 18px;
+            }
+
+            .form-group label {
+                font-size: 14px;
+            }
+
+            .form-group input,
+            .form-group textarea {
+                font-size: 14px;
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
