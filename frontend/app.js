@@ -755,14 +755,14 @@ async function showBoard() {
 }
 
 // Быстрый фильтр маркеров на карте (кнопки над картой)
-function setMapFilter(filter, event) {
+function setMapFilter(filter, element) {
     currentMapFilter = filter;
 
     // Переключаем активную кнопку
     const buttons = document.querySelectorAll('.map-filter-button');
     buttons.forEach(btn => btn.classList.remove('active'));
-    if (event && event.target) {
-        event.target.classList.add('active');
+    if (element) {
+        element.classList.add('active');
     }
 
     renderMapMarkers();
