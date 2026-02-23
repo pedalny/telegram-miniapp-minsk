@@ -8,6 +8,7 @@ import os
 from urllib.parse import unquote
 from dotenv import load_dotenv
 
+# Тестовый комментарий: изменение для проверки деплоя и сохранения меток в БД
 # Импортируем БД (PostgreSQL для продакшена, SQLite для локальной разработки)
 from sqlalchemy.orm import Session
 from .database import get_db
