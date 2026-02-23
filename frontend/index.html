@@ -37,10 +37,11 @@
             height: 100vh;
         }
 
-        /* Быстрые фильтры над картой — выше карты и с удобной зоной нажатия */
+        /* Быстрые фильтры по типу объявлений (перенесены вниз, чтобы не конфликтовать с верхней областью Telegram) */
         .map-filters {
             position: fixed;
-            top: 12px;
+            top: auto;
+            bottom: 90px;
             left: 50%;
             transform: translateX(-50%) translateZ(0);
             z-index: 2000;
@@ -76,51 +77,10 @@
             color: #fff;
         }
 
-        /* Кнопка «Фильтр» (для Telegram, где верхние кнопки не срабатывают) */
-        .btn-filter {
-            top: 12px;
-            right: 12px;
-            bottom: auto;
-            left: auto;
-            background: #007bff;
-            color: #fff;
-            font-size: 18px;
-        }
-
-        /* Панель фильтра — как модальное окно, чтобы надёжно открывалось в Telegram */
-        .filter-panel-option {
-            display: block;
-            width: 100%;
-            padding: 16px 20px;
-            border: none;
-            background: #fff;
-            font-size: 17px;
-            text-align: left;
-            cursor: pointer;
-            color: #333;
-            border-bottom: 1px solid #eee;
-            min-height: 52px;
-            touch-action: manipulation;
-        }
-
-        .filter-panel-option:last-child {
-            border-bottom: none;
-        }
-
-        .filter-panel-option:active {
-            background: #f0f7ff;
-        }
-
-        .filter-panel-option.active {
-            background: #e7f1ff;
-            color: #007bff;
-            font-weight: 600;
-        }
-
         /* Легенда цветов маркеров */
         .map-legend {
             position: fixed;
-            bottom: 90px;
+            bottom: 150px;
             left: 20px;
             background: rgba(255, 255, 255, 0.95);
             padding: 8px 12px;
@@ -658,20 +618,6 @@
         <div class="map-legend-item">
             <span class="legend-dot worker"></span>
             <span>Исполнители (ищут работу)</span>
-        </div>
-    </div>
-
-    <!-- Кнопка «Фильтр» (работает в Telegram, где верхняя полоска может не реагировать) -->
-    <button class="floating-button btn-filter" id="btnFilter" title="Фильтр по типу">⚙️</button>
-
-    <!-- Модальное окно выбора фильтра (тот же тип, что и формы — надёжно в Telegram) -->
-    <div class="modal" id="filterModal">
-        <div class="modal-content" style="max-width: 320px;">
-            <button class="btn-close" onclick="closeModal('filterModal')">×</button>
-            <div class="modal-header">Показать на карте</div>
-            <button type="button" class="filter-panel-option" data-filter="all">Все</button>
-            <button type="button" class="filter-panel-option" data-filter="task">Задачи 🔴</button>
-            <button type="button" class="filter-panel-option" data-filter="worker">Исполнители 🟢</button>
         </div>
     </div>
 
