@@ -42,7 +42,7 @@
             position: fixed;
             top: 12px;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translateX(-50%) translateZ(0);
             z-index: 2000;
             display: flex;
             background: rgba(255, 255, 255, 0.98);
@@ -52,6 +52,7 @@
             overflow: hidden;
             pointer-events: auto;
             -webkit-tap-highlight-color: transparent;
+            -webkit-transform: translateX(-50%) translateZ(0);
         }
 
         .map-filter-button {

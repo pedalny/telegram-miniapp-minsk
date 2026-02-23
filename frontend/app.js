@@ -769,28 +769,30 @@ function setMapFilter(filter, element) {
     renderMapMarkers();
 }
 
-// Привязка обработчиков к кнопкам фильтров карты (click + touch для всех устройств)
+// Привязка обработчиков к кнопкам фильтров карты (мобильные: touchstart, десктоп: click)
 function initMapFilters() {
     const buttons = document.querySelectorAll('.map-filter-button');
     if (!buttons || buttons.length === 0) {
         return;
     }
 
-    function handleFilterTap(btn, e) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
+    function applyFilter(btn) {
         var filter = btn.dataset.filter || 'all';
         setMapFilter(filter, btn);
     }
 
     buttons.forEach(function(btn) {
-        btn.addEventListener('touchend', function(e) {
-            handleFilterTap(btn, e);
-        }, { passive: false });
+        // На мобильных: перехватываем touchstart в фазе capture, чтобы карта не забирала касание
+        btn.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            applyFilter(btn);
+        }, { passive: false, capture: true });
+        // Десктоп
         btn.addEventListener('click', function(e) {
-            handleFilterTap(btn, e);
+            e.preventDefault();
+            e.stopPropagation();
+            applyFilter(btn);
         });
     });
 }
