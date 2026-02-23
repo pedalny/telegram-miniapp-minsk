@@ -5,7 +5,9 @@ let currentMode = null; // 'task' или 'worker'
 let currentCoords = null;
 let currentAddress = null;
 let tempMarker = null; // временный маркер при постановке
-let markers = [];      // маркеры всех объявлений
+let markers = [];      // маркеры всех объявлений на карте
+let mapListings = [];  // все объявления, загруженные для карты
+let currentMapFilter = 'all'; // all | task | worker
 let userInfo = null;
 
 // Инициализация Telegram WebApp
@@ -496,49 +498,68 @@ async function loadListings() {
         const response = await fetch('/api/listings');
         const listings = await response.json();
         
-        // Удаляем старые маркеры
-        markers.forEach(marker => {
-            map.removeLayer(marker);
-        });
-        markers = [];
-        
-        // Добавляем новые маркеры
-        listings.forEach(listing => {
-            const color = listing.type === 'task' ? 'red' : 'green';
-            const icon = L.divIcon({
-                className: 'custom-marker',
-                html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
-                iconSize: [18, 18],
-                iconAnchor: [9, 9]
-            });
-
-            const popupContent = `
-                <div style="padding: 8px; min-width: 200px;">
-                    <strong>${listing.title}</strong><br>
-                    <small>${listing.address}</small><br>
-                    <strong>💰 ${listing.payment}</strong><br>
-                    <button onclick="window.showListingDetail(${listing.id})" style="margin-top: 8px; padding: 6px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%;">
-                        Подробнее
-                    </button>
-                </div>
-            `;
-
-            const marker = L.marker([listing.latitude, listing.longitude], { 
-                icon
-            });
-            
-            // Сохраняем ID объявления в маркере
-            marker._listingId = listing.id;
-            
-            marker.bindPopup(popupContent)
-                .on('click', () => showListingDetail(listing.id))
-                .addTo(map);
-
-            markers.push(marker);
-        });
+        // Сохраняем объявления для карты и перерисовываем маркеры с учётом фильтра
+        mapListings = listings || [];
+        renderMapMarkers();
     } catch (error) {
         console.error('Ошибка загрузки объявлений:', error);
     }
+}
+
+// Перерисовка маркеров на карте с учётом текущего фильтра
+function renderMapMarkers() {
+    if (!map) return;
+
+    // Удаляем старые маркеры
+    markers.forEach(marker => {
+        map.removeLayer(marker);
+    });
+    markers = [];
+
+    const filtered = mapListings.filter(listing => {
+        if (currentMapFilter === 'task') return listing.type === 'task';
+        if (currentMapFilter === 'worker') return listing.type === 'worker';
+        return true; // all
+    });
+
+    filtered.forEach(listing => {
+        const color = listing.type === 'task' ? 'red' : 'green';
+        const icon = L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
+        });
+
+        const popupContent = `
+            <div class="job-popup-content">
+                <strong>${listing.title}</strong><br>
+                <small>${listing.address}</small><br>
+                <strong>💰 ${listing.payment}</strong><br>
+                <button onclick="window.showListingDetail(${listing.id})" class="job-popup-button">
+                    Подробнее
+                </button>
+            </div>
+        `;
+
+        const marker = L.marker([listing.latitude, listing.longitude], { 
+            icon
+        });
+        
+        // Сохраняем ID объявления в маркере
+        marker._listingId = listing.id;
+        
+        marker.bindPopup(popupContent, {
+            className: 'job-popup',
+            maxWidth: 260,
+            minWidth: 260,
+            autoPan: true
+        })
+            .on('click', () => showListingDetail(listing.id))
+            .addTo(map);
+
+        markers.push(marker);
+    });
 }
 
 // Показать детали объявления (глобальная функция для popup)
@@ -731,6 +752,20 @@ async function showBoard() {
         console.error('Ошибка загрузки объявлений:', error);
         alert('Не удалось загрузить объявления');
     }
+}
+
+// Быстрый фильтр маркеров на карте (кнопки над картой)
+function setMapFilter(filter, event) {
+    currentMapFilter = filter;
+
+    // Переключаем активную кнопку
+    const buttons = document.querySelectorAll('.map-filter-button');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+
+    renderMapMarkers();
 }
 
 // Переключение вкладок доски
