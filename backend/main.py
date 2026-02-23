@@ -6,7 +6,7 @@ import os
 
 # Импортируем модули как часть пакета backend
 from .routes import router
-from .json_storage import _ensure_data_file, get_stats
+from .database import init_db
 
 app = FastAPI(title="Minsk Jobs Telegram Mini App")
 
@@ -32,60 +32,24 @@ if os.path.exists(frontend_path):
 
 @app.on_event("startup")
 async def startup_event():
-    """Инициализация JSON хранилища при запуске"""
+    """Инициализация базы данных при запуске"""
     import os
-    from .json_storage import DATA_PATH, DATA_DIR, DATA_FILE
+    from .database import DB_TYPE, DATABASE_URL
     
     print("=" * 50)
     print("🚀 Запуск приложения...")
-    print(f"📁 Хранилище данных: JSON файл")
-    print(f"📁 Директория: {DATA_DIR}")
-    print(f"📁 Файл: {DATA_FILE}")
-    print(f"📁 Полный путь: {DATA_PATH}")
-    print(f"📁 Директория существует: {os.path.exists(DATA_DIR)}")
-    print(f"📁 Файл существует: {os.path.exists(DATA_PATH)}")
+    print(f"📦 DB_TYPE из env: {os.getenv('DB_TYPE', 'не установлен')}")
+    print(f"📦 DATABASE_URL из env: {'установлен' if os.getenv('DATABASE_URL') else 'НЕ УСТАНОВЛЕН!'}")
     print("=" * 50)
     
     try:
-        # Проверяем состояние файла ДО инициализации
-        file_existed_before = os.path.exists(DATA_PATH)
-        if file_existed_before:
-            file_size_before = os.path.getsize(DATA_PATH)
-            print(f"📊 Файл данных существовал до инициализации: {file_size_before} байт")
-        else:
-            print(f"📊 Файл данных не существовал до инициализации")
-        
-        # Создаем файл данных если его нет (НЕ перезаписывает существующий!)
-        _ensure_data_file()
-        
-        # Проверяем состояние файла ПОСЛЕ инициализации
-        if os.path.exists(DATA_PATH):
-            file_size_after = os.path.getsize(DATA_PATH)
-            print(f"✅ Файл данных после инициализации: {DATA_PATH} (размер: {file_size_after} байт)")
-            
-            # Сравниваем размеры
-            if file_existed_before and file_size_before != file_size_after:
-                print(f"⚠️  ВНИМАНИЕ: размер файла изменился! Было: {file_size_before}, Стало: {file_size_after}")
-            elif file_existed_before:
-                print(f"✅ Размер файла не изменился - данные сохранены")
-        else:
-            print(f"❌ КРИТИЧЕСКАЯ ОШИБКА: файл данных не найден после инициализации!")
-        
-        # Показываем статистику
-        stats = get_stats()
-        print(f"👥 Пользователей в хранилище: {stats['users_count']}")
-        print(f"📋 Всего объявлений: {stats['listings_count']}")
-        print(f"✅ Активных объявлений: {stats['active_listings_count']}")
-        
-        # Предупреждение если данные потеряны
-        if file_existed_before and stats['listings_count'] == 0:
-            print(f"⚠️  ВНИМАНИЕ: Файл существовал, но объявлений нет! Возможно данные потеряны при деплое.")
-            print(f"💡 РЕШЕНИЕ: Используй переменную окружения DATA_DIR для указания постоянного хранилища")
-        
+        # Инициализируем базу данных (PostgreSQL или SQLite)
+        init_db()
         print("✅ Приложение готово к работе")
         print("=" * 50)
     except Exception as e:
-        print(f"❌ КРИТИЧЕСКАЯ ОШИБКА при инициализации хранилища: {e}")
+        print(f"❌ КРИТИЧЕСКАЯ ОШИБКА при инициализации БД: {e}")
+        print("⚠️  Проверьте переменные окружения на Render!")
         import traceback
         traceback.print_exc()
         raise
