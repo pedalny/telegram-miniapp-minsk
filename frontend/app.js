@@ -755,13 +755,20 @@ async function showBoard() {
     }
 }
 
-// Быстрый фильтр маркеров на карте (кнопки над картой)
+// Быстрый фильтр маркеров на карте (кнопки над картой или панель)
 function setMapFilter(filter, element) {
     currentMapFilter = filter;
 
-    // Переключаем активную кнопку
-    const buttons = document.querySelectorAll('.map-filter-button');
-    buttons.forEach(btn => btn.classList.remove('active'));
+    // Синхронизируем активное состояние: полоска над картой
+    const stripButtons = document.querySelectorAll('.map-filter-button');
+    stripButtons.forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    // Синхронизируем активное состояние: панель фильтра
+    const panelOptions = document.querySelectorAll('.filter-panel-option');
+    panelOptions.forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
     if (element) {
         element.classList.add('active');
     }
@@ -793,6 +800,52 @@ function initMapFilters() {
             e.preventDefault();
             e.stopPropagation();
             applyFilter(btn);
+        });
+    });
+
+    // Панель фильтра (кнопка «Фильтр» + выбор в панели) — надёжно работает в Telegram
+    initFilterPanel();
+}
+
+function initFilterPanel() {
+    var btn = document.getElementById('btnFilter');
+    var panel = document.getElementById('filterPanel');
+    if (!btn || !panel) return;
+
+    function togglePanel() {
+        panel.classList.toggle('active');
+    }
+
+    function chooseFilter(filterValue) {
+        setMapFilter(filterValue, null);
+        panel.classList.remove('active');
+    }
+
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePanel();
+    });
+
+    var options = panel.querySelectorAll('.filter-panel-option');
+    options.forEach(function(opt) {
+        opt.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            chooseFilter(opt.dataset.filter || 'all');
+        });
+        opt.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            chooseFilter(opt.dataset.filter || 'all');
+        }, { passive: false });
+    });
+
+    // При открытии панели подкрашиваем текущий выбор
+    btn.addEventListener('click', function() {
+        var opts = panel.querySelectorAll('.filter-panel-option');
+        opts.forEach(function(o) {
+            o.classList.toggle('active', o.dataset.filter === currentMapFilter);
         });
     });
 }

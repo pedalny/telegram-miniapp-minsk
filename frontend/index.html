@@ -76,6 +76,65 @@
             color: #fff;
         }
 
+        /* Кнопка «Фильтр» и панель (для Telegram, где верхние кнопки не срабатывают) */
+        .btn-filter {
+            top: 12px;
+            right: 12px;
+            bottom: auto;
+            left: auto;
+            background: #007bff;
+            color: #fff;
+            font-size: 18px;
+        }
+
+        .filter-panel {
+            display: none;
+            position: fixed;
+            top: 72px;
+            right: 12px;
+            left: 12px;
+            max-width: 280px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            z-index: 1999;
+            overflow: hidden;
+        }
+
+        .filter-panel.active {
+            display: block;
+        }
+
+        .filter-panel-option {
+            display: block;
+            width: 100%;
+            padding: 14px 16px;
+            border: none;
+            background: #fff;
+            font-size: 16px;
+            text-align: left;
+            cursor: pointer;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            min-height: 48px;
+            touch-action: manipulation;
+        }
+
+        .filter-panel-option:last-child {
+            border-bottom: none;
+        }
+
+        .filter-panel-option:active,
+        .filter-panel-option.active {
+            background: #f0f7ff;
+        }
+
+        .filter-panel-option.active {
+            color: #007bff;
+            font-weight: 600;
+        }
+
         /* Легенда цветов маркеров */
         .map-legend {
             position: fixed;
@@ -618,6 +677,14 @@
             <span class="legend-dot worker"></span>
             <span>Исполнители (ищут работу)</span>
         </div>
+    </div>
+
+    <!-- Кнопка «Фильтр» (работает в Telegram, где верхняя полоска может не реагировать) -->
+    <button class="floating-button btn-filter" id="btnFilter" title="Фильтр по типу">⚙️</button>
+    <div class="filter-panel" id="filterPanel">
+        <button type="button" class="filter-panel-option" data-filter="all">Все</button>
+        <button type="button" class="filter-panel-option" data-filter="task">Задачи 🔴</button>
+        <button type="button" class="filter-panel-option" data-filter="worker">Исполнители 🟢</button>
     </div>
 
     <!-- Плавающие кнопки -->
