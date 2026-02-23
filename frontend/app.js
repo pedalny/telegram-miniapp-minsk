@@ -809,25 +809,29 @@ function initMapFilters() {
 
 function initFilterPanel() {
     var btn = document.getElementById('btnFilter');
-    var panel = document.getElementById('filterPanel');
-    if (!btn || !panel) return;
+    var modal = document.getElementById('filterModal');
+    if (!btn || !modal) return;
 
-    function togglePanel() {
-        panel.classList.toggle('active');
+    function openFilterModal() {
+        modal.classList.add('active');
+        var opts = modal.querySelectorAll('.filter-panel-option');
+        opts.forEach(function(o) {
+            o.classList.toggle('active', o.dataset.filter === currentMapFilter);
+        });
     }
 
     function chooseFilter(filterValue) {
         setMapFilter(filterValue, null);
-        panel.classList.remove('active');
+        modal.classList.remove('active');
     }
 
     btn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        togglePanel();
+        openFilterModal();
     });
 
-    var options = panel.querySelectorAll('.filter-panel-option');
+    var options = modal.querySelectorAll('.filter-panel-option');
     options.forEach(function(opt) {
         opt.addEventListener('click', function(e) {
             e.preventDefault();
@@ -839,14 +843,6 @@ function initFilterPanel() {
             e.stopPropagation();
             chooseFilter(opt.dataset.filter || 'all');
         }, { passive: false });
-    });
-
-    // При открытии панели подкрашиваем текущий выбор
-    btn.addEventListener('click', function() {
-        var opts = panel.querySelectorAll('.filter-panel-option');
-        opts.forEach(function(o) {
-            o.classList.toggle('active', o.dataset.filter === currentMapFilter);
-        });
     });
 }
 
