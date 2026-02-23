@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initAuth();
     await initMap();
     await loadListings();
+    initMapFilters();
     
     // Проверяем параметры URL для показа конкретного объявления
     const urlParams = new URLSearchParams(window.location.search);
@@ -766,6 +767,21 @@ function setMapFilter(filter, element) {
     }
 
     renderMapMarkers();
+}
+
+// Привязка обработчиков к кнопкам фильтров карты
+function initMapFilters() {
+    const buttons = document.querySelectorAll('.map-filter-button');
+    if (!buttons || buttons.length === 0) {
+        return;
+    }
+
+    buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const filter = btn.dataset.filter || 'all';
+            setMapFilter(filter, btn);
+        });
+    });
 }
 
 // Переключение вкладок доски
