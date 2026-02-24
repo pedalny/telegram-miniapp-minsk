@@ -238,6 +238,18 @@ function hideHint() {
     document.getElementById('hint').classList.remove('active');
 }
 
+// Переключить отображение подсказки вручную
+window.toggleHelpHint = function() {
+    const hint = document.getElementById('hint');
+    if (!hint) return;
+    if (hint.classList.contains('active')) {
+        hint.classList.remove('active');
+    } else {
+        hint.textContent = 'Нажмите на карте, чтобы выбрать место. Пользуйтесь кнопками внизу для создания задач и объявлений.';
+        hint.classList.add('active');
+    }
+};
+
 // Закрыть модальное окно
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('active');

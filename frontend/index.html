@@ -142,6 +142,29 @@
             box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35);
         }
 
+        .help-toggle-btn {
+            position: fixed;
+            top: 52px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #e5f0ff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .help-toggle-btn:active {
+            transform: scale(0.92);
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35);
+        }
+
         .floating-button {
             position: fixed;
             width: 56px;
@@ -171,25 +194,29 @@
         }
 
         .btn-task {
-            bottom: 20px;
-            right: 20px;
             background: #ff4444;
             color: white;
         }
 
         .btn-worker {
-            bottom: 20px;
-            right: 86px;
             background: #44ff44;
             color: white;
         }
 
-        .btn-my-listings {
+        .btn-my-listings,
+        .btn-board {
+            background: #ffffff;
+            color: #111827;
+        }
+
+        .bottom-actions {
+            position: fixed;
             bottom: 20px;
-            left: 20px;
-            background: #4444ff;
-            color: white;
-            font-size: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 16px;
+            z-index: 1000;
         }
 
         .modal {
@@ -543,7 +570,8 @@
             border-radius: 16px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
             max-width: 260px;
-            width: auto;
+            width: 260px;
+            overflow: hidden;
         }
 
         .job-popup .leaflet-popup-content {
@@ -654,21 +682,26 @@
             <span>Исполнители (ищут работу)</span>
         </div>
         <button type="button" id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleMapTheme()" title="Тёмная тема карты">🌙</button>
+        <button type="button" id="helpToggleBtn" class="help-toggle-btn" onclick="toggleHelpHint()" title="Подсказка по карте">
+            <img src="/static/icons/icons/outline/info-circle.svg" alt="" class="floating-button-icon">
+        </button>
     </div>
 
     <!-- Плавающие кнопки -->
-    <button class="floating-button btn-task" onclick="startPlaceTask()" title="Поставить задачу">
-        <img src="/static/icons/icons/outline/briefcase.svg" alt="" class="floating-button-icon">
-    </button>
-    <button class="floating-button btn-worker" onclick="startPlaceWorker()" title="Я ищу работу">
-        <img src="/static/icons/icons/outline/user.svg" alt="" class="floating-button-icon">
-    </button>
-    <button class="floating-button btn-board" onclick="window.location.href='/board.html'" title="Доска объявлений">
-        <img src="/static/icons/icons/outline/notes.svg" alt="" class="floating-button-icon">
-    </button>
-    <button class="floating-button btn-my-listings" onclick="showMyListings()" title="Мои объявления">
-        <img src="/static/icons/icons/outline/star.svg" alt="" class="floating-button-icon">
-    </button>
+    <div class="bottom-actions">
+        <button class="floating-button btn-board" onclick="window.location.href='/board.html'" title="Доска объявлений">
+            <img src="/static/icons/icons/outline/notes.svg" alt="" class="floating-button-icon">
+        </button>
+        <button class="floating-button btn-my-listings" onclick="showMyListings()" title="Мои объявления">
+            <img src="/static/icons/icons/outline/star.svg" alt="" class="floating-button-icon">
+        </button>
+        <button class="floating-button btn-worker" onclick="startPlaceWorker()" title="Я ищу работу">
+            <img src="/static/icons/icons/outline/user.svg" alt="" class="floating-button-icon">
+        </button>
+        <button class="floating-button btn-task" onclick="startPlaceTask()" title="Поставить задачу">
+            <img src="/static/icons/icons/outline/briefcase.svg" alt="" class="floating-button-icon">
+        </button>
+    </div>
 
     <!-- Подсказка -->
     <div class="hint" id="hint">Нажмите на карте, где будет работа</div>
