@@ -17,11 +17,6 @@
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin="">
     </script>
-    <!-- Иконки Tabler (SVG webfont) -->
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css"
-    />
     <style>
         * {
             margin: 0;
@@ -124,7 +119,10 @@
         }
 
         .theme-toggle-btn {
-            margin-top: 6px;
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            margin-top: 0;
             width: 32px;
             height: 32px;
             border-radius: 50%;
@@ -161,8 +159,10 @@
             backdrop-filter: blur(10px);
         }
 
-        .floating-button i {
-            font-size: 24px;
+        .floating-button-icon {
+            width: 24px;
+            height: 24px;
+            display: block;
         }
 
         .floating-button:active {
@@ -658,16 +658,16 @@
 
     <!-- Плавающие кнопки -->
     <button class="floating-button btn-task" onclick="startPlaceTask()" title="Поставить задачу">
-        <i class="ti ti-briefcase"></i>
+        <img src="/static/icons/icons/outline/briefcase.svg" alt="" class="floating-button-icon">
     </button>
     <button class="floating-button btn-worker" onclick="startPlaceWorker()" title="Я ищу работу">
-        <i class="ti ti-user"></i>
+        <img src="/static/icons/icons/outline/user.svg" alt="" class="floating-button-icon">
     </button>
     <button class="floating-button btn-board" onclick="window.location.href='/board.html'" title="Доска объявлений">
-        <i class="ti ti-notes"></i>
+        <img src="/static/icons/icons/outline/notes.svg" alt="" class="floating-button-icon">
     </button>
     <button class="floating-button btn-my-listings" onclick="showMyListings()" title="Мои объявления">
-        <i class="ti ti-star"></i>
+        <img src="/static/icons/icons/outline/star.svg" alt="" class="floating-button-icon">
     </button>
 
     <!-- Подсказка -->
