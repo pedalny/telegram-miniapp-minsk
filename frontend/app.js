@@ -927,15 +927,22 @@ function applyMapStyle(styleKey) {
 }
 
 function updateMapStyleButtons(styleKey) {
-    const buttons = document.querySelectorAll('.map-style-button');
-    buttons.forEach((btn) => {
-        const key = btn.dataset.style;
-        btn.classList.toggle('active', key === styleKey);
-    });
+    const btn = document.getElementById('themeToggleBtn');
+    if (!btn) {
+        return;
+    }
+    if (styleKey === 'light') {
+        btn.textContent = '🌙';
+        btn.title = 'Включить тёмную тему карты';
+    } else {
+        btn.textContent = '☀️';
+        btn.title = 'Включить светлую тему карты';
+    }
 }
 
 // Глобальная функция для вызова из HTML
-window.setMapStyle = function(styleKey) {
-    applyMapStyle(styleKey);
+window.toggleMapTheme = function() {
+    const next = currentMapStyleKey === 'light' ? 'dark' : 'light';
+    applyMapStyle(next);
 };
 
