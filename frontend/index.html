@@ -54,7 +54,6 @@
             overflow: hidden;
             pointer-events: auto;
             -webkit-tap-highlight-color: transparent;
-            -webkit-transform: translateX(-50%) translateZ(0);
         }
 
         .map-filter-button {
@@ -218,8 +217,25 @@
             transform: none;
             display: flex;
             justify-content: space-between;
-            gap: 12px;
+            gap: 16px;
             z-index: 1000;
+        }
+
+        /* Десктоп: ограничиваем ширину и центрируем ряд кнопок и фильтр */
+        @media (min-width: 768px) {
+            .bottom-actions {
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                max-width: 420px;
+            }
+
+            .map-filters {
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                max-width: 380px;
+            }
         }
 
         .modal {
