@@ -109,10 +109,10 @@ function initMap() {
         // Центр на Минск
         map = L.map('map').setView([53.9045, 27.5615], 11);
 
-        // Подложка OpenStreetMap
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Подложка OpenStreetMap с более современным стилем (CartoDB Positron)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
-            attribution: '&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
         }).addTo(map);
 
         // Обработчик клика по карте
