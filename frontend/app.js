@@ -217,13 +217,11 @@ function initMap() {
 // Начало размещения задачи
 function startPlaceTask() {
     currentMode = 'task';
-    showHint('Нажмите на карте, где будет работа');
 }
 
 // Начало размещения исполнителя
 function startPlaceWorker() {
     currentMode = 'worker';
-    showHint('Нажмите на карте, где вам удобно работать');
 }
 
 // Показать подсказку
@@ -413,7 +411,6 @@ async function getCurrentLocation(formType) {
 // Выбор места на карте
 function selectOnMap(formType) {
     currentMode = formType;
-    showHint('Нажмите на карте, где будет работа');
     // Закрываем модальное окно временно, чтобы пользователь мог кликнуть на карте
     if (formType === 'task') {
         document.getElementById('taskModal').classList.remove('active');

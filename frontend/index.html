@@ -42,8 +42,9 @@
             position: fixed;
             top: auto;
             bottom: 90px;
-            left: 50%;
-            transform: translateX(-50%) translateZ(0);
+            left: 16px;
+            right: 16px;
+            transform: translateZ(0);
             z-index: 2000;
             display: flex;
             background: rgba(255, 255, 255, 0.98);
@@ -212,10 +213,12 @@
         .bottom-actions {
             position: fixed;
             bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 16px;
+            right: 16px;
+            transform: none;
             display: flex;
-            gap: 16px;
+            justify-content: space-between;
+            gap: 12px;
             z-index: 1000;
         }
 
@@ -621,7 +624,9 @@
             .map-filters {
                 bottom: 80px;
                 top: auto;
-                transform: translateX(-50%) scale(0.95);
+                left: 12px;
+                right: 12px;
+                transform: translateZ(0);
             }
 
             .map-filter-button {
