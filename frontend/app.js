@@ -10,6 +10,25 @@ let mapListings = [];  // все объявления, загруженные д
 let currentMapFilter = 'all'; // all | task | worker
 let userInfo = null;
 
+// Доступные стили карты
+const MAP_STYLES = {
+    light: {
+        key: 'light',
+        name: 'Светлая',
+        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+    },
+    dark: {
+        key: 'dark',
+        name: 'Тёмная',
+        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+    }
+};
+
+let currentMapStyleKey = 'light';
+let baseTileLayer = null;
+
 // Инициализация Telegram WebApp
 let tg = null;
 let isTelegramWebApp = false;
@@ -109,11 +128,17 @@ function initMap() {
         // Центр на Минск
         map = L.map('map').setView([53.9045, 27.5615], 11);
 
-        // Подложка OpenStreetMap с более светлым современным стилем (CartoDB Positron)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
-        }).addTo(map);
+        // Выбираем стиль карты (по умолчанию светлый или сохранённый пользователем)
+        let savedStyle = 'light';
+        try {
+            const stored = localStorage.getItem('mapStyle');
+            if (stored && MAP_STYLES[stored]) {
+                savedStyle = stored;
+            }
+        } catch (e) {
+            console.log('Не удалось прочитать стиль карты из localStorage', e);
+        }
+        applyMapStyle(savedStyle);
 
         // Обработчик клика по карте
         // Получаем адрес по координатам через обратный геокодинг
@@ -871,4 +896,46 @@ function renderBoardListings(listings) {
         `;
     }).join('');
 }
+
+// ====== Стили карты (светлая/тёмная) ======
+
+// Применение стиля карты
+function applyMapStyle(styleKey) {
+    if (!map) return;
+
+    const style = MAP_STYLES[styleKey] || MAP_STYLES.light;
+
+    if (baseTileLayer) {
+        map.removeLayer(baseTileLayer);
+    }
+
+    baseTileLayer = L.tileLayer(style.url, {
+        maxZoom: 19,
+        attribution: style.attribution
+    });
+    baseTileLayer.addTo(map);
+
+    currentMapStyleKey = styleKey;
+
+    try {
+        localStorage.setItem('mapStyle', styleKey);
+    } catch (e) {
+        console.log('Не удалось сохранить стиль карты в localStorage', e);
+    }
+
+    updateMapStyleButtons(styleKey);
+}
+
+function updateMapStyleButtons(styleKey) {
+    const buttons = document.querySelectorAll('.map-style-button');
+    buttons.forEach((btn) => {
+        const key = btn.dataset.style;
+        btn.classList.toggle('active', key === styleKey);
+    });
+}
+
+// Глобальная функция для вызова из HTML
+window.setMapStyle = function(styleKey) {
+    applyMapStyle(styleKey);
+};
 
