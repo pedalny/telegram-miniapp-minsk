@@ -22,17 +22,35 @@ let accessBlocked = false;
 const MAP_STYLES = {
     light: {
         key: 'light',
-        name: 'Светлая',
+        name: 'Positron',
+        icon: '☀️',
         url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+    },
+    voyager: {
+        key: 'voyager',
+        name: 'Voyager',
+        icon: '🧭',
+        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
     },
     dark: {
         key: 'dark',
-        name: 'Тёмная',
+        name: 'Dark Matter',
+        icon: '🌙',
         url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+    },
+    osm: {
+        key: 'osm',
+        name: 'OpenStreetMap Standard',
+        icon: '🗺️',
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }
 };
+
+const MAP_STYLE_ORDER = ['light', 'voyager', 'dark', 'osm'];
 
 let currentMapStyleKey = 'light';
 let baseTileLayer = null;
@@ -1165,18 +1183,21 @@ function updateMapStyleButtons(styleKey) {
     if (!btn) {
         return;
     }
-    if (styleKey === 'light') {
-        btn.textContent = '🌙';
-        btn.title = 'Включить тёмную тему карты';
-    } else {
-        btn.textContent = '☀️';
-        btn.title = 'Включить светлую тему карты';
-    }
+    const currentStyle = MAP_STYLES[styleKey] || MAP_STYLES.light;
+    const currentIndex = MAP_STYLE_ORDER.indexOf(styleKey);
+    const safeIndex = currentIndex === -1 ? 0 : currentIndex;
+    const nextStyleKey = MAP_STYLE_ORDER[(safeIndex + 1) % MAP_STYLE_ORDER.length];
+    const nextStyle = MAP_STYLES[nextStyleKey] || MAP_STYLES.light;
+
+    btn.textContent = currentStyle.icon || '🗺️';
+    btn.title = `${currentStyle.name}. Нажмите для переключения на ${nextStyle.name}`;
 }
 
 // Глобальная функция для вызова из HTML
 window.toggleMapTheme = function() {
-    const next = currentMapStyleKey === 'light' ? 'dark' : 'light';
+    const currentIndex = MAP_STYLE_ORDER.indexOf(currentMapStyleKey);
+    const safeIndex = currentIndex === -1 ? 0 : currentIndex;
+    const next = MAP_STYLE_ORDER[(safeIndex + 1) % MAP_STYLE_ORDER.length];
     applyMapStyle(next);
 };
 
