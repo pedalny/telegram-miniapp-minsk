@@ -146,6 +146,17 @@
             box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35);
         }
 
+        .terms-open-btn {
+            top: 52px;
+        }
+
+        .admin-open-btn {
+            top: 92px;
+            display: none;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
         .floating-button {
             position: fixed;
             width: 56px;
@@ -709,6 +720,7 @@
             <div id="termsGateTitle" class="terms-gate-title">Условия пользования</div>
             <div id="termsGateContent" class="terms-gate-content"></div>
             <div class="terms-gate-actions">
+                <button id="termsGateCloseBtn" class="terms-gate-btn" style="display:none; margin-right:8px;" onclick="closeTermsDialog()">Закрыть</button>
                 <button id="termsGateAcceptBtn" class="terms-gate-btn" onclick="acceptTerms()">Принять и продолжить</button>
             </div>
         </div>
@@ -732,6 +744,8 @@
             <span>Исполнители (ищут работу)</span>
         </div>
         <button type="button" id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleMapTheme()" title="Тёмная тема карты">🌙</button>
+        <button type="button" id="termsOpenBtn" class="theme-toggle-btn terms-open-btn" onclick="openTermsDialog()" title="Условия пользования">📄</button>
+        <button type="button" id="adminOpenBtn" class="theme-toggle-btn admin-open-btn" onclick="window.location.href='/admin.html'" title="Админ-панель">ADM</button>
     </div>
 
     <!-- Плавающие кнопки -->

@@ -14,6 +14,7 @@ let appBootstrapped = false;
 let termsState = {
     activeVersion: null,
     accepted: false,
+    currentTerms: null,
 };
 
 // Доступные стили карты
@@ -103,6 +104,7 @@ async function initAuth() {
         console.log('Режим локального тестирования - авторизация пропущена');
         // Для локального тестирования можно создать мок пользователя
         userInfo = { telegram_id: 123456789, username: 'test_user' };
+        updateAdminButtonVisibility(null);
         return;
     }
     
@@ -124,6 +126,7 @@ async function initAuth() {
         if (response.ok) {
             userInfo = await response.json();
             console.log('Авторизован:', userInfo);
+            updateAdminButtonVisibility(userInfo);
         } else {
             const error = await response.json();
             console.error('Ошибка авторизации:', error);
@@ -179,6 +182,27 @@ function hideTermsGateModal() {
     }
 }
 
+function setTermsModalMode(mode) {
+    const acceptBtn = document.getElementById('termsGateAcceptBtn');
+    const closeBtn = document.getElementById('termsGateCloseBtn');
+    if (!acceptBtn || !closeBtn) return;
+
+    if (mode === 'view') {
+        acceptBtn.style.display = termsState.accepted ? 'none' : 'inline-flex';
+        closeBtn.style.display = 'inline-flex';
+    } else {
+        acceptBtn.style.display = 'inline-flex';
+        closeBtn.style.display = 'none';
+    }
+}
+
+function updateAdminButtonVisibility(payload) {
+    const btn = document.getElementById('adminOpenBtn');
+    if (!btn) return;
+    const role = payload?.role || userInfo?.role;
+    btn.style.display = role === 'admin' ? 'inline-flex' : 'none';
+}
+
 function ensureTermsAcceptedUI() {
     if (termsState.accepted) {
         return true;
@@ -195,11 +219,15 @@ async function checkTermsGate() {
     try {
         const [compliance, terms] = await Promise.all([fetchCompliance(), fetchActiveTerms()]);
         termsState.activeVersion = terms.version;
+        termsState.currentTerms = terms;
         termsState.accepted = Boolean(compliance.is_terms_accepted);
+        updateAdminButtonVisibility(compliance);
         if (termsState.accepted) {
+            setTermsModalMode('view');
             hideTermsGateModal();
             return;
         }
+        setTermsModalMode('gate');
         showTermsGateModal(terms);
     } catch (error) {
         console.error('Ошибка проверки условий:', error);
@@ -231,7 +259,9 @@ window.acceptTerms = async function() {
         }
 
         termsState.accepted = Boolean(payload.is_terms_accepted);
+        updateAdminButtonVisibility(payload);
         if (termsState.accepted) {
+            setTermsModalMode('view');
             hideTermsGateModal();
             await bootstrapApp();
         }
@@ -241,6 +271,28 @@ window.acceptTerms = async function() {
     } finally {
         if (btn) btn.disabled = false;
     }
+};
+
+window.openTermsDialog = async function() {
+    try {
+        if (!termsState.currentTerms) {
+            const terms = await fetchActiveTerms();
+            termsState.currentTerms = terms;
+            termsState.activeVersion = terms.version;
+        }
+        setTermsModalMode('view');
+        showTermsGateModal(termsState.currentTerms);
+    } catch (error) {
+        console.error('Ошибка загрузки условий:', error);
+        alert('Не удалось открыть условия пользования');
+    }
+};
+
+window.closeTermsDialog = function() {
+    if (!termsState.accepted) {
+        return;
+    }
+    hideTermsGateModal();
 };
 
 // Инициализация карты Leaflet (OpenStreetMap)
