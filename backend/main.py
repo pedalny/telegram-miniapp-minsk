@@ -37,19 +37,19 @@ async def startup_event():
     from .database import DB_TYPE, DATABASE_URL
     
     print("=" * 50)
-    print("🚀 Запуск приложения...")
-    print(f"📦 DB_TYPE из env: {os.getenv('DB_TYPE', 'не установлен')}")
-    print(f"📦 DATABASE_URL из env: {'установлен' if os.getenv('DATABASE_URL') else 'НЕ УСТАНОВЛЕН!'}")
+    print("Запуск приложения...")
+    print(f"DB_TYPE из env: {os.getenv('DB_TYPE', 'не установлен')}")
+    print(f"DATABASE_URL из env: {'установлен' if os.getenv('DATABASE_URL') else 'НЕ УСТАНОВЛЕН'}")
     print("=" * 50)
     
     try:
         # Инициализируем базу данных (PostgreSQL или SQLite)
         init_db()
-        print("✅ Приложение готово к работе")
+        print("Приложение готово к работе")
         print("=" * 50)
     except Exception as e:
-        print(f"❌ КРИТИЧЕСКАЯ ОШИБКА при инициализации БД: {e}")
-        print("⚠️  Проверьте переменные окружения на Render!")
+        print(f"КРИТИЧЕСКАЯ ОШИБКА при инициализации БД: {e}")
+        print("Проверьте переменные окружения на Render")
         import traceback
         traceback.print_exc()
         raise
@@ -77,4 +77,13 @@ async def board():
     """
     board_file = os.path.join(frontend_path, "board.html")
     return FileResponse(board_file)
+
+
+@app.get("/admin.html")
+async def admin():
+    """
+    Отдаём страницу админ-панели
+    """
+    admin_file = os.path.join(frontend_path, "admin.html")
+    return FileResponse(admin_file)
 

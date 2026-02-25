@@ -45,3 +45,56 @@ class ListingResponse(ListingBase):
     class Config:
         from_attributes = True
 
+
+class TermsDocumentResponse(BaseModel):
+    version: str
+    title: str
+    content: str
+    created_at: Optional[datetime] = None
+
+
+class ComplianceResponse(BaseModel):
+    user_id: int
+    telegram_id: int
+    username: Optional[str] = None
+    role: str
+    is_banned: bool
+    ban_reason: Optional[str] = None
+    accepted_terms_version: Optional[str] = None
+    accepted_terms_at: Optional[datetime] = None
+    active_terms_version: Optional[str] = None
+    is_terms_accepted: bool
+
+
+class AcceptTermsRequest(BaseModel):
+    version: str
+
+
+class AdminUserRoleUpdateRequest(BaseModel):
+    role: str
+
+
+class AdminUserBanRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class AdminUserResponse(BaseModel):
+    id: int
+    telegram_id: int
+    username: Optional[str] = None
+    role: str
+    is_banned: bool
+    ban_reason: Optional[str] = None
+    accepted_terms_version: Optional[str] = None
+    accepted_terms_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class AdminAuditResponse(BaseModel):
+    id: int
+    admin_user_id: int
+    target_user_id: Optional[int] = None
+    action: str
+    details: Optional[str] = None
+    created_at: Optional[datetime] = None
+

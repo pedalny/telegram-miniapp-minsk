@@ -9,6 +9,12 @@ let markers = [];      // маркеры всех объявлений на ка
 let mapListings = [];  // все объявления, загруженные для карты
 let currentMapFilter = 'all'; // all | task | worker
 let userInfo = null;
+const WORKER_GREEN = '#28a745';
+let appBootstrapped = false;
+let termsState = {
+    activeVersion: null,
+    accepted: false,
+};
 
 // Доступные стили карты
 const MAP_STYLES = {
@@ -46,13 +52,23 @@ try {
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', async () => {
-    // Получаем API ключ из конфига (в продакшене лучше через env)
-    // Пока что нужно будет заменить в index.html
     await initAuth();
+    await checkTermsGate();
+    if (termsState.accepted) {
+        await bootstrapApp();
+    }
+});
+
+async function bootstrapApp() {
+    if (appBootstrapped) {
+        return;
+    }
+    appBootstrapped = true;
+
     await initMap();
     await loadListings();
     initMapFilters();
-    
+
     // Проверяем параметры URL для показа конкретного объявления
     const urlParams = new URLSearchParams(window.location.search);
     const showId = urlParams.get('show');
@@ -79,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.history.replaceState({}, document.title, '/');
         }, 500);
     }
-});
+}
 
 // Авторизация через Telegram
 async function initAuth() {
@@ -116,6 +132,116 @@ async function initAuth() {
         console.error('Ошибка при авторизации:', error);
     }
 }
+
+function buildApiHeaders(extra = {}) {
+    const headers = { ...extra };
+    if (isTelegramWebApp && tg && tg.initData) {
+        headers['X-Telegram-Init-Data'] = tg.initData;
+    }
+    return headers;
+}
+
+async function fetchCompliance() {
+    const response = await fetch('/api/me/compliance', {
+        headers: buildApiHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Не удалось получить статус пользователя');
+    }
+    return response.json();
+}
+
+async function fetchActiveTerms() {
+    const response = await fetch('/api/terms/active');
+    if (!response.ok) {
+        throw new Error('Не удалось загрузить условия пользования');
+    }
+    return response.json();
+}
+
+function showTermsGateModal(terms) {
+    const gate = document.getElementById('termsGate');
+    const title = document.getElementById('termsGateTitle');
+    const content = document.getElementById('termsGateContent');
+    if (!gate || !title || !content) {
+        return;
+    }
+
+    title.textContent = terms.title || 'Условия пользования';
+    content.textContent = terms.content || '';
+    gate.classList.add('active');
+}
+
+function hideTermsGateModal() {
+    const gate = document.getElementById('termsGate');
+    if (gate) {
+        gate.classList.remove('active');
+    }
+}
+
+function ensureTermsAcceptedUI() {
+    if (termsState.accepted) {
+        return true;
+    }
+    const gate = document.getElementById('termsGate');
+    if (gate) {
+        gate.classList.add('active');
+    }
+    alert('Сначала нужно принять условия пользования.');
+    return false;
+}
+
+async function checkTermsGate() {
+    try {
+        const [compliance, terms] = await Promise.all([fetchCompliance(), fetchActiveTerms()]);
+        termsState.activeVersion = terms.version;
+        termsState.accepted = Boolean(compliance.is_terms_accepted);
+        if (termsState.accepted) {
+            hideTermsGateModal();
+            return;
+        }
+        showTermsGateModal(terms);
+    } catch (error) {
+        console.error('Ошибка проверки условий:', error);
+        alert('Не удалось проверить условия пользования. Обновите страницу.');
+    }
+}
+
+window.acceptTerms = async function() {
+    const btn = document.getElementById('termsGateAcceptBtn');
+    if (!termsState.activeVersion) {
+        alert('Не найдена активная версия условий');
+        return;
+    }
+
+    try {
+        if (btn) btn.disabled = true;
+        const response = await fetch('/api/terms/accept', {
+            method: 'POST',
+            headers: buildApiHeaders({
+                'Content-Type': 'application/json',
+            }),
+            body: JSON.stringify({ version: termsState.activeVersion }),
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+            alert(payload.detail?.message || payload.detail || 'Не удалось принять условия');
+            return;
+        }
+
+        termsState.accepted = Boolean(payload.is_terms_accepted);
+        if (termsState.accepted) {
+            hideTermsGateModal();
+            await bootstrapApp();
+        }
+    } catch (error) {
+        console.error('Ошибка принятия условий:', error);
+        alert('Ошибка принятия условий');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+};
 
 // Инициализация карты Leaflet (OpenStreetMap)
 function initMap() {
@@ -154,7 +280,7 @@ function initMap() {
             }
 
             // Создаем временный маркер
-            const markerColor = currentMode === 'task' ? 'red' : 'green';
+            const markerColor = currentMode === 'task' ? 'red' : WORKER_GREEN;
             const icon = L.divIcon({
                 className: 'custom-marker',
                 html: `<div style="width:18px;height:18px;border-radius:50%;background:${markerColor};border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
@@ -216,11 +342,13 @@ function initMap() {
 
 // Начало размещения задачи
 function startPlaceTask() {
+    if (!ensureTermsAcceptedUI()) return;
     currentMode = 'task';
 }
 
 // Начало размещения исполнителя
 function startPlaceWorker() {
+    if (!ensureTermsAcceptedUI()) return;
     currentMode = 'worker';
 }
 
@@ -316,6 +444,7 @@ async function getAddressFromCoords(lat, lng) {
 
 // Получение геолокации через браузерный Geolocation API
 async function getCurrentLocation(formType) {
+    if (!ensureTermsAcceptedUI()) return;
     if (!navigator.geolocation) {
         alert('Геолокация не поддерживается вашим браузером');
         return;
@@ -338,7 +467,7 @@ async function getCurrentLocation(formType) {
             }
             
             // Создаем маркер
-            const color = formType === 'task' ? 'red' : 'green';
+            const color = formType === 'task' ? 'red' : WORKER_GREEN;
             const icon = L.divIcon({
                 className: 'custom-marker',
                 html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
@@ -410,6 +539,7 @@ async function getCurrentLocation(formType) {
 
 // Выбор места на карте
 function selectOnMap(formType) {
+    if (!ensureTermsAcceptedUI()) return;
     currentMode = formType;
     // Закрываем модальное окно временно, чтобы пользователь мог кликнуть на карте
     if (formType === 'task') {
@@ -422,6 +552,7 @@ function selectOnMap(formType) {
 // Отправка задачи
 async function submitTask(event) {
     event.preventDefault();
+    if (!ensureTermsAcceptedUI()) return;
     
     if (!currentCoords) {
         alert('Выберите место на карте или используйте геолокацию');
@@ -444,16 +575,11 @@ async function submitTask(event) {
     };
     
     try {
-        const headers = {
-            'Content-Type': 'application/json'
-        };
-        if (isTelegramWebApp && tg && tg.initData) {
-            headers['X-Telegram-Init-Data'] = tg.initData;
-        }
-
         const response = await fetch('/api/listings', {
             method: 'POST',
-            headers,
+            headers: buildApiHeaders({
+                'Content-Type': 'application/json'
+            }),
             body: JSON.stringify(data)
         });
         
@@ -465,7 +591,11 @@ async function submitTask(event) {
             await loadListings();
         } else {
             const error = await response.json();
-            alert('Ошибка: ' + (error.detail || 'Не удалось опубликовать'));
+            if (response.status === 428) {
+                termsState.accepted = false;
+                await checkTermsGate();
+            }
+            alert('Ошибка: ' + (error.detail?.message || error.detail || 'Не удалось опубликовать'));
         }
     } catch (error) {
         console.error('Ошибка:', error);
@@ -476,6 +606,7 @@ async function submitTask(event) {
 // Отправка исполнителя
 async function submitWorker(event) {
     event.preventDefault();
+    if (!ensureTermsAcceptedUI()) return;
     
     if (!currentCoords) {
         alert('Выберите место на карте или используйте геолокацию');
@@ -498,16 +629,11 @@ async function submitWorker(event) {
     };
     
     try {
-        const headers = {
-            'Content-Type': 'application/json'
-        };
-        if (isTelegramWebApp && tg && tg.initData) {
-            headers['X-Telegram-Init-Data'] = tg.initData;
-        }
-
         const response = await fetch('/api/listings', {
             method: 'POST',
-            headers,
+            headers: buildApiHeaders({
+                'Content-Type': 'application/json'
+            }),
             body: JSON.stringify(data)
         });
         
@@ -519,7 +645,11 @@ async function submitWorker(event) {
             await loadListings();
         } else {
             const error = await response.json();
-            alert('Ошибка: ' + (error.detail || 'Не удалось опубликовать'));
+            if (response.status === 428) {
+                termsState.accepted = false;
+                await checkTermsGate();
+            }
+            alert('Ошибка: ' + (error.detail?.message || error.detail || 'Не удалось опубликовать'));
         }
     } catch (error) {
         console.error('Ошибка:', error);
@@ -558,7 +688,7 @@ function renderMapMarkers() {
     });
 
     filtered.forEach(listing => {
-        const color = listing.type === 'task' ? 'red' : 'green';
+        const color = listing.type === 'task' ? 'red' : WORKER_GREEN;
         const icon = L.divIcon({
             className: 'custom-marker',
             html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
@@ -647,6 +777,7 @@ async function showListingDetail(listingId) {
 
 // Связаться с пользователем
 function contactUser(contacts) {
+    if (!ensureTermsAcceptedUI()) return;
     if (isTelegramWebApp && tg) {
         if (contacts.startsWith('@')) {
             tg.openTelegramLink(`https://t.me/${contacts.substring(1)}`);
@@ -663,19 +794,17 @@ function contactUser(contacts) {
 
 // Показать мои объявления
 async function showMyListings() {
-    if (!isTelegramWebApp || !tg || !tg.initData) {
-        alert('Эта функция доступна только в Telegram');
-        return;
-    }
-    
-    const initData = tg.initData;
+    if (!ensureTermsAcceptedUI()) return;
     
     try {
         const response = await fetch('/api/listings/my', {
-            headers: {
-                'X-Telegram-Init-Data': initData
-            }
+            headers: buildApiHeaders()
         });
+        if (response.status === 428) {
+            termsState.accepted = false;
+            await checkTermsGate();
+            return;
+        }
         
         const listings = await response.json();
         
@@ -718,16 +847,8 @@ function switchTab(tab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     event.target.classList.add('active');
     
-    if (!isTelegramWebApp || !tg || !tg.initData) {
-        return;
-    }
-    
-    const initData = tg.initData;
-    
     fetch('/api/listings/my', {
-        headers: {
-            'X-Telegram-Init-Data': initData
-        }
+        headers: buildApiHeaders()
     })
     .then(r => r.json())
     .then(listings => {
@@ -739,24 +860,21 @@ function switchTab(tab) {
 
 // Удалить объявление
 async function removeListing(listingId) {
+    if (!ensureTermsAcceptedUI()) return;
     if (!confirm('Снять объявление с публикации?')) {
         return;
     }
     
-    if (!isTelegramWebApp || !tg || !tg.initData) {
-        alert('Эта функция доступна только в Telegram');
-        return;
-    }
-    
-    const initData = tg.initData;
-    
     try {
         const response = await fetch(`/api/listings/${listingId}`, {
             method: 'DELETE',
-            headers: {
-                'X-Telegram-Init-Data': initData
-            }
+            headers: buildApiHeaders()
         });
+        if (response.status === 428) {
+            termsState.accepted = false;
+            await checkTermsGate();
+            return;
+        }
         
         if (response.ok) {
             alert('Объявление снято');

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f3f4f6;
+            color: #111827;
+        }
+        .page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 14px;
+        }
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        input, select, button {
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            padding: 8px 10px;
+            font-size: 14px;
+        }
+        button {
+            cursor: pointer;
+            background: #111827;
+            color: #fff;
+            border: none;
+        }
+        button.secondary {
+            background: #4b5563;
+        }
+        button.warn {
+            background: #b91c1c;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .pill.admin { background: #dbeafe; color: #1d4ed8; }
+        .pill.user { background: #e5e7eb; color: #374151; }
+        .pill.banned { background: #fee2e2; color: #991b1b; }
+        .status { margin-left: auto; color: #6b7280; font-size: 13px; }
+        .audit-box {
+            max-height: 260px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px;
+            background: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="header">
+            <div class="title">Админ-панель</div>
+            <a href="/" style="text-decoration:none;"><button class="secondary" type="button">На карту</button></a>
+        </div>
+
+        <div class="card">
+            <div class="row">
+                <input id="searchInput" type="text" placeholder="Поиск по username или Telegram ID">
+                <select id="roleFilter">
+                    <option value="">Все роли</option>
+                    <option value="user">user</option>
+                    <option value="admin">admin</option>
+                </select>
+                <select id="banFilter">
+                    <option value="">Все статусы</option>
+                    <option value="false">Не забанен</option>
+                    <option value="true">Забанен</option>
+                </select>
+                <button type="button" onclick="loadUsers()">Обновить</button>
+                <span id="statusText" class="status">Готово</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Telegram</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Ban</th>
+                        <th>Terms</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="usersBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="row" style="justify-content:space-between;">
+                <strong>Журнал модерации</strong>
+                <button type="button" class="secondary" onclick="loadAudit()">Обновить журнал</button>
+            </div>
+            <div id="auditBox" class="audit-box"></div>
+        </div>
+    </div>
+
+    <script src="/static/admin.js"></script>
+</body>
+</html>

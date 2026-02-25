@@ -5,4 +5,5 @@ python-dotenv>=1.0.1
 pydantic>=2.10.0
 python-multipart>=0.0.12
 psycopg2-binary>=2.9.9  # Для PostgreSQL (нужен на Render)
+alembic>=1.13.3
 

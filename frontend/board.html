@@ -180,8 +180,8 @@
         }
 
         .listing-card-type.worker {
-            background: #e8f5e9;
-            color: #2e7d32;
+            background: #28a745;
+            color: #fff;
         }
 
         .listing-card-title {
@@ -319,9 +319,54 @@
             padding: 40px 20px;
             color: #666;
         }
+
+        .terms-gate {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 5000;
+            background: rgba(2, 6, 23, 0.92);
+            padding: 16px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .terms-gate.active {
+            display: flex;
+        }
+
+        .terms-gate-card {
+            width: min(720px, 100%);
+            max-height: 90vh;
+            background: #fff;
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .terms-gate-content {
+            white-space: pre-wrap;
+            max-height: 56vh;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            line-height: 1.45;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
+    <div id="termsGate" class="terms-gate">
+        <div class="terms-gate-card">
+            <h2 id="termsTitle">Условия пользования</h2>
+            <div id="termsContent" class="terms-gate-content"></div>
+            <button id="termsAcceptBtn" class="btn-contact" onclick="acceptTerms()">Принять и продолжить</button>
+        </div>
+    </div>
+
     <div class="header">
         <a href="/" class="back-button">← Назад к карте</a>
         <h1>📋 Доска объявлений</h1>
@@ -388,10 +433,100 @@
     <script>
         let allListings = [];
         let currentBoardTab = 'tasks';
+        let tg = null;
+        let isTelegramWebApp = false;
+        let termsAccepted = false;
+        let activeTermsVersion = null;
+
+        try {
+            if (window.Telegram && window.Telegram.WebApp) {
+                tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+                isTelegramWebApp = true;
+            }
+        } catch (e) {
+            console.log('Telegram WebApp недоступен');
+        }
+
+        function apiHeaders(extra = {}) {
+            const headers = { ...extra };
+            if (isTelegramWebApp && tg && tg.initData) {
+                headers['X-Telegram-Init-Data'] = tg.initData;
+            }
+            return headers;
+        }
+
+        async function checkTermsGate() {
+            const [termsResponse, complianceResponse] = await Promise.all([
+                fetch('/api/terms/active'),
+                fetch('/api/me/compliance', { headers: apiHeaders() }),
+            ]);
+
+            if (!termsResponse.ok || !complianceResponse.ok) {
+                throw new Error('Не удалось получить статус условий');
+            }
+
+            const terms = await termsResponse.json();
+            const compliance = await complianceResponse.json();
+
+            activeTermsVersion = terms.version;
+            termsAccepted = Boolean(compliance.is_terms_accepted);
+            if (termsAccepted) {
+                document.getElementById('termsGate').classList.remove('active');
+                return;
+            }
+
+            document.getElementById('termsTitle').textContent = terms.title || 'Условия пользования';
+            document.getElementById('termsContent').textContent = terms.content || '';
+            document.getElementById('termsGate').classList.add('active');
+        }
+
+        async function acceptTerms() {
+            if (!activeTermsVersion) {
+                return;
+            }
+            const button = document.getElementById('termsAcceptBtn');
+            try {
+                button.disabled = true;
+                const response = await fetch('/api/terms/accept', {
+                    method: 'POST',
+                    headers: apiHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ version: activeTermsVersion }),
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(error.detail?.message || error.detail || 'Не удалось принять условия');
+                    return;
+                }
+                termsAccepted = true;
+                document.getElementById('termsGate').classList.remove('active');
+                await loadListings();
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function ensureTermsAccepted() {
+            if (termsAccepted) {
+                return true;
+            }
+            document.getElementById('termsGate').classList.add('active');
+            alert('Сначала нужно принять условия пользования.');
+            return false;
+        }
 
         // Загрузка объявлений при открытии страницы
         document.addEventListener('DOMContentLoaded', async () => {
-            await loadListings();
+            try {
+                await checkTermsGate();
+                if (termsAccepted) {
+                    await loadListings();
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Не удалось проверить условия пользования');
+            }
         });
 
         // Загрузка всех объявлений
@@ -409,6 +544,7 @@
 
         // Переключение вкладок доски
         function switchBoardTab(tab) {
+            if (!ensureTermsAccepted()) return;
             currentBoardTab = tab;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             event.target.classList.add('active');
@@ -565,6 +701,7 @@
 
         // Показать детали объявления
         function showListingDetail(listingId) {
+            if (!ensureTermsAccepted()) return;
             const listing = allListings.find(l => l.id === listingId);
             if (!listing) return;
 
@@ -613,6 +750,7 @@
 
         // Связаться с пользователем
         function contactUser(contacts) {
+            if (!ensureTermsAccepted()) return;
             if (window.Telegram && window.Telegram.WebApp) {
                 const tg = window.Telegram.WebApp;
                 if (contacts.startsWith('@')) {
@@ -627,6 +765,7 @@
 
         // Показать на карте
         function showOnMap(listingId) {
+            if (!ensureTermsAccepted()) return;
             const listing = allListings.find(l => l.id === listingId);
             if (!listing) return;
             
