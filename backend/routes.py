@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 from urllib.parse import unquote
 
 from dotenv import load_dotenv
@@ -15,17 +16,39 @@ from .database import DB_TYPE, get_db
 from .models import AdminAuditLog, Listing, TermsDocument, User
 from .schemas import (
     AcceptTermsRequest,
+    AdminListingCloseRequest,
+    AdminListingResponse,
     AdminAuditResponse,
     AdminUserBanRequest,
     AdminUserResponse,
     AdminUserRoleUpdateRequest,
     ComplianceResponse,
+    DeleteListingRequest,
     ListingCreate,
     TermsDocumentResponse,
 )
 
 load_dotenv()
 router = APIRouter()
+
+
+# Базовый фильтр непристойной лексики для объявлений.
+# Список можно расширять по мере модерации.
+FORBIDDEN_WORD_PATTERNS = [
+    r"\bх[уy][йияеёю]\w*",
+    r"\bпизд\w*",
+    r"\bеб\w*",
+    r"\bёб\w*",
+    r"\bбля\w*",
+    r"\bбляд\w*",
+    r"\bсук\w*",
+    r"\bмуд(а|о|е)\w*",
+    r"\bгандон\w*",
+    r"\bшлюх\w*",
+    r"\bдолбо(е|ё)б\w*",
+]
+
+FORBIDDEN_REGEXES = [re.compile(pattern, re.IGNORECASE) for pattern in FORBIDDEN_WORD_PATTERNS]
 
 
 def verify_telegram_webapp_data(init_data: str) -> Optional[dict]:
@@ -196,6 +219,29 @@ def _write_admin_audit(
     db.commit()
 
 
+def _validate_listing_text_content(listing: ListingCreate) -> None:
+    fields_to_check = {
+        "title": listing.title or "",
+        "description": listing.description or "",
+        "address": listing.address or "",
+        "payment": listing.payment or "",
+        "contacts": listing.contacts or "",
+    }
+
+    for field_name, text_value in fields_to_check.items():
+        for regex in FORBIDDEN_REGEXES:
+            match = regex.search(text_value)
+            if match:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "forbidden_content",
+                        "field": field_name,
+                        "message": "Объявление содержит запрещенную лексику и не может быть опубликовано",
+                    },
+                )
+
+
 def _get_current_user(
     db: Session,
     init_data: Optional[str],
@@ -209,10 +255,30 @@ def _get_current_user(
         username = user_data.get("username")
         if not telegram_id:
             raise HTTPException(status_code=400, detail="Отсутствует telegram_id")
-        return _upsert_user_by_telegram(db, telegram_id=telegram_id, username=username)
+        user = _upsert_user_by_telegram(db, telegram_id=telegram_id, username=username)
+        if user.is_banned:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "user_banned",
+                    "message": "Доступ заблокирован администратором",
+                    "reason": user.ban_reason,
+                },
+            )
+        return user
 
     if _allow_local_auth_bypass():
-        return _get_or_create_local_user(db)
+        user = _get_or_create_local_user(db)
+        if user.is_banned:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "user_banned",
+                    "message": "Доступ заблокирован администратором",
+                    "reason": user.ban_reason,
+                },
+            )
+        return user
 
     raise HTTPException(status_code=401, detail="Требуется авторизация Telegram")
 
@@ -239,6 +305,15 @@ async def auth_telegram(
         raise HTTPException(status_code=400, detail="Отсутствует telegram_id")
 
     user = _upsert_user_by_telegram(db, telegram_id=telegram_id, username=username)
+    if user.is_banned:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "user_banned",
+                "message": "Доступ заблокирован администратором",
+                "reason": user.ban_reason,
+            },
+        )
     payload = _serialize_compliance(user, db)
     return payload
 
@@ -292,7 +367,12 @@ async def get_listings(
     db: Session = Depends(get_db),
     type: Optional[str] = None,
     status: str = "active",
+    init_data: Optional[str] = Header(None, alias="X-Telegram-Init-Data"),
 ):
+    if init_data:
+        user = _get_current_user(db=db, init_data=init_data)
+        _require_not_banned(user)
+
     query = db.query(Listing).filter(Listing.status == status)
     if type:
         query = query.filter(Listing.type == type)
@@ -326,6 +406,7 @@ async def create_listing(
 ):
     _require_not_banned(user)
     _require_terms_accepted(user, db)
+    _validate_listing_text_content(listing)
 
     if listing.type not in ["task", "worker"]:
         raise HTTPException(status_code=400, detail="Тип должен быть 'task' или 'worker'")
@@ -389,6 +470,7 @@ async def get_my_listings(
 @router.delete("/api/listings/{listing_id}")
 async def delete_listing(
     listing_id: int,
+    body: Optional[DeleteListingRequest] = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -402,17 +484,31 @@ async def delete_listing(
     )
     if not listing:
         raise HTTPException(status_code=404, detail="Объявление не найдено")
+    if not body or not body.reason or not body.reason.strip():
+        raise HTTPException(status_code=400, detail="Укажите причину снятия объявления")
 
     listing.status = "closed"
     db.commit()
+    _write_admin_audit(
+        db=db,
+        admin_user_id=user.id,
+        target_user_id=user.id,
+        action="close_own_listing",
+        details=f"listing_id={listing.id}; reason={body.reason.strip()}",
+    )
     return {"message": "Объявление снято с публикации"}
 
 
 @router.get("/api/listings/{listing_id}")
 async def get_listing(
     listing_id: int,
+    init_data: Optional[str] = Header(None, alias="X-Telegram-Init-Data"),
     db: Session = Depends(get_db),
 ):
+    if init_data:
+        user = _get_current_user(db=db, init_data=init_data)
+        _require_not_banned(user)
+
     listing = (
         db.query(Listing)
         .filter(Listing.id == listing_id, Listing.status == "active")
@@ -482,6 +578,67 @@ async def admin_list_users(
         for row in rows
     ]
     return {"total": total, "page": page, "page_size": page_size, "items": items}
+
+
+@router.get("/api/admin/listings", response_model=list[AdminListingResponse])
+async def admin_list_active_listings(
+    limit: int = Query(default=100, ge=1, le=500),
+    admin_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(admin_user)
+    rows = (
+        db.query(Listing)
+        .filter(Listing.status == "active")
+        .order_by(Listing.created_at.desc(), Listing.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        AdminListingResponse(
+            id=row.id,
+            user_id=row.user_id,
+            type=row.type,
+            title=row.title,
+            address=row.address,
+            payment=row.payment,
+            status=row.status,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+
+
+@router.post("/api/admin/listings/{listing_id}/close")
+async def admin_close_listing(
+    listing_id: int,
+    body: AdminListingCloseRequest,
+    admin_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(admin_user)
+    reason = (body.reason or "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="Нужно указать причину удаления маркера")
+
+    listing = (
+        db.query(Listing)
+        .filter(Listing.id == listing_id, Listing.status == "active")
+        .first()
+    )
+    if not listing:
+        raise HTTPException(status_code=404, detail="Маркер не найден или уже снят")
+
+    listing.status = "closed"
+    db.commit()
+    _write_admin_audit(
+        db=db,
+        admin_user_id=admin_user.id,
+        target_user_id=listing.user_id,
+        action="admin_close_listing",
+        details=f"listing_id={listing.id}; reason={reason}",
+    )
+    return {"message": "Маркер удалён", "listing_id": listing.id}
 
 
 @router.post("/api/admin/users/{user_id}/ban")

@@ -16,6 +16,7 @@ let termsState = {
     accepted: false,
     currentTerms: null,
 };
+let accessBlocked = false;
 
 // Доступные стили карты
 const MAP_STYLES = {
@@ -129,6 +130,10 @@ async function initAuth() {
             updateAdminButtonVisibility(userInfo);
         } else {
             const error = await response.json();
+            if (response.status === 403 && error?.detail?.code === 'user_banned') {
+                blockAppAccess(error?.detail?.reason);
+                return;
+            }
             console.error('Ошибка авторизации:', error);
         }
     } catch (error) {
@@ -148,6 +153,13 @@ async function fetchCompliance() {
     const response = await fetch('/api/me/compliance', {
         headers: buildApiHeaders(),
     });
+    if (response.status === 403) {
+        const error = await response.json();
+        if (error?.detail?.code === 'user_banned') {
+            blockAppAccess(error?.detail?.reason);
+        }
+        throw new Error(error?.detail?.message || 'Доступ запрещён');
+    }
     if (!response.ok) {
         throw new Error('Не удалось получить статус пользователя');
     }
@@ -204,6 +216,10 @@ function updateAdminButtonVisibility(payload) {
 }
 
 function ensureTermsAcceptedUI() {
+    if (accessBlocked) {
+        alert('Доступ к приложению заблокирован.');
+        return false;
+    }
     if (termsState.accepted) {
         return true;
     }
@@ -216,8 +232,15 @@ function ensureTermsAcceptedUI() {
 }
 
 async function checkTermsGate() {
+    if (accessBlocked) {
+        return;
+    }
     try {
         const [compliance, terms] = await Promise.all([fetchCompliance(), fetchActiveTerms()]);
+        if (compliance?.is_banned) {
+            blockAppAccess(compliance?.ban_reason);
+            return;
+        }
         termsState.activeVersion = terms.version;
         termsState.currentTerms = terms;
         termsState.accepted = Boolean(compliance.is_terms_accepted);
@@ -233,6 +256,12 @@ async function checkTermsGate() {
         console.error('Ошибка проверки условий:', error);
         alert('Не удалось проверить условия пользования. Обновите страницу.');
     }
+}
+
+function blockAppAccess(reason) {
+    accessBlocked = true;
+    const reasonText = reason ? `Причина: ${reason}` : 'Причина не указана.';
+    alert(`Ваш доступ к приложению заблокирован администратором.\n${reasonText}`);
 }
 
 window.acceptTerms = async function() {
@@ -712,7 +741,16 @@ async function submitWorker(event) {
 // Загрузка всех объявлений
 async function loadListings() {
     try {
-        const response = await fetch('/api/listings');
+        const response = await fetch('/api/listings', {
+            headers: buildApiHeaders()
+        });
+        if (response.status === 403) {
+            const error = await response.json();
+            if (error?.detail?.code === 'user_banned') {
+                blockAppAccess(error?.detail?.reason);
+                return;
+            }
+        }
         const listings = await response.json();
         
         // Сохраняем объявления для карты и перерисовываем маркеры с учётом фильтра
@@ -782,7 +820,16 @@ function renderMapMarkers() {
 // Показать детали объявления (глобальная функция для popup)
 window.showListingDetail = async function(listingId) {
     try {
-        const response = await fetch(`/api/listings/${listingId}`);
+        const response = await fetch(`/api/listings/${listingId}`, {
+            headers: buildApiHeaders()
+        });
+        if (response.status === 403) {
+            const error = await response.json();
+            if (error?.detail?.code === 'user_banned') {
+                blockAppAccess(error?.detail?.reason);
+                return;
+            }
+        }
         const listing = await response.json();
         
         const detailDiv = document.getElementById('listingDetail');
@@ -916,11 +963,19 @@ async function removeListing(listingId) {
     if (!confirm('Снять объявление с публикации?')) {
         return;
     }
+    const reason = prompt('Укажите причину снятия объявления:', '') || '';
+    if (!reason.trim()) {
+        alert('Причина обязательна');
+        return;
+    }
     
     try {
         const response = await fetch(`/api/listings/${listingId}`, {
             method: 'DELETE',
-            headers: buildApiHeaders()
+            headers: buildApiHeaders({
+                'Content-Type': 'application/json'
+            }),
+            body: JSON.stringify({ reason: reason.trim() })
         });
         if (response.status === 428) {
             termsState.accepted = false;

@@ -189,6 +189,39 @@ async function loadAudit() {
     }
 }
 
+async function closeListingByAdmin() {
+    const listingIdRaw = document.getElementById("listingIdInput")?.value;
+    const reason = (document.getElementById("listingReasonInput")?.value || "").trim();
+    const listingId = Number(listingIdRaw);
+
+    if (!Number.isInteger(listingId) || listingId <= 0) {
+        alert("Укажите корректный ID маркера");
+        return;
+    }
+    if (!reason) {
+        alert("Причина удаления обязательна");
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/listings/${listingId}/close`, {
+            method: "POST",
+            headers: apiHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ reason }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.detail?.message || payload.detail || "Не удалось удалить маркер");
+        }
+        alert(`Маркер ${listingId} удалён`);
+        document.getElementById("listingIdInput").value = "";
+        document.getElementById("listingReasonInput").value = "";
+        await Promise.all([loadUsers(), loadAudit()]);
+    } catch (error) {
+        alert(error.message || "Ошибка удаления маркера");
+    }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
     await loadUsers();
     await loadAudit();

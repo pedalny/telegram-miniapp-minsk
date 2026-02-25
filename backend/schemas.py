@@ -78,6 +78,14 @@ class AdminUserBanRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class DeleteListingRequest(BaseModel):
+    reason: str
+
+
+class AdminListingCloseRequest(BaseModel):
+    reason: str
+
+
 class AdminUserResponse(BaseModel):
     id: int
     telegram_id: int
@@ -96,5 +104,16 @@ class AdminAuditResponse(BaseModel):
     target_user_id: Optional[int] = None
     action: str
     details: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class AdminListingResponse(BaseModel):
+    id: int
+    user_id: int
+    type: str
+    title: str
+    address: str
+    payment: str
+    status: str
     created_at: Optional[datetime] = None
 

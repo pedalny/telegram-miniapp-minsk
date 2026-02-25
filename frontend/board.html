@@ -437,6 +437,7 @@
         let isTelegramWebApp = false;
         let termsAccepted = false;
         let activeTermsVersion = null;
+        let accessBlocked = false;
 
         try {
             if (window.Telegram && window.Telegram.WebApp) {
@@ -469,6 +470,14 @@
 
             const terms = await termsResponse.json();
             const compliance = await complianceResponse.json();
+            if (compliance?.is_banned) {
+                accessBlocked = true;
+                document.getElementById('termsTitle').textContent = 'Доступ заблокирован';
+                document.getElementById('termsContent').textContent = `Ваш доступ к приложению заблокирован администратором.\nПричина: ${compliance.ban_reason || 'не указана'}`;
+                document.getElementById('termsAcceptBtn').style.display = 'none';
+                document.getElementById('termsGate').classList.add('active');
+                return;
+            }
 
             activeTermsVersion = terms.version;
             termsAccepted = Boolean(compliance.is_terms_accepted);
@@ -508,6 +517,10 @@
         }
 
         function ensureTermsAccepted() {
+            if (accessBlocked) {
+                alert('Доступ к приложению заблокирован администратором.');
+                return false;
+            }
             if (termsAccepted) {
                 return true;
             }
