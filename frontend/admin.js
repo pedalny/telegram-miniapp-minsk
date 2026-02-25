@@ -189,20 +189,69 @@ async function loadAudit() {
     }
 }
 
-async function closeListingByAdmin() {
-    const listingIdRaw = document.getElementById("listingIdInput")?.value;
-    const reason = (document.getElementById("listingReasonInput")?.value || "").trim();
-    const listingId = Number(listingIdRaw);
+function escapeHtml(value) {
+    return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
 
-    if (!Number.isInteger(listingId) || listingId <= 0) {
-        alert("Укажите корректный ID маркера");
+function renderListingModeration(items) {
+    const container = document.getElementById("listingModerationList");
+    if (!container) return;
+    if (!items || items.length === 0) {
+        container.innerHTML = "<div class='listing-moderation-item'>Активных маркеров нет.</div>";
         return;
     }
+
+    container.innerHTML = items
+        .map((listing) => {
+            const typeText = listing.type === "task" ? "Задача" : "Исполнитель";
+            return `
+                <div class="listing-moderation-item">
+                    <div><strong>#${listing.id} · ${typeText}</strong> · ${escapeHtml(listing.title)}</div>
+                    <div class="listing-moderation-meta">Автор: ${escapeHtml(listing.username || "-")} (user_id=${listing.user_id})</div>
+                    <div class="listing-moderation-meta">Адрес: ${escapeHtml(listing.address)}</div>
+                    <div class="listing-moderation-meta">Оплата: ${escapeHtml(listing.payment)}</div>
+                    <div class="listing-moderation-meta">Контакт: ${escapeHtml(listing.contacts)}</div>
+                    <div class="listing-moderation-meta">Создано: ${formatDate(listing.created_at)}</div>
+                    <div class="listing-moderation-actions">
+                        <input id="listing-reason-${listing.id}" type="text" placeholder="Причина удаления маркера">
+                        <button type="button" class="warn" onclick="closeListingByAdmin(${listing.id})">Удалить маркер</button>
+                    </div>
+                </div>
+            `;
+        })
+        .join("");
+}
+
+async function loadAdminListings() {
+    try {
+        const response = await fetch("/api/admin/listings?limit=200", {
+            headers: apiHeaders(),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.detail?.message || payload.detail || "Не удалось загрузить маркеры");
+        }
+        renderListingModeration(payload);
+    } catch (error) {
+        const container = document.getElementById("listingModerationList");
+        if (container) {
+            container.innerHTML = "<div class='listing-moderation-item'>Ошибка загрузки маркеров.</div>";
+        }
+    }
+}
+
+async function closeListingByAdmin(listingId) {
+    const reasonInput = document.getElementById(`listing-reason-${listingId}`);
+    const reason = (reasonInput?.value || "").trim();
     if (!reason) {
         alert("Причина удаления обязательна");
         return;
     }
-
     try {
         const response = await fetch(`/api/admin/listings/${listingId}/close`, {
             method: "POST",
@@ -213,16 +262,12 @@ async function closeListingByAdmin() {
         if (!response.ok) {
             throw new Error(payload.detail?.message || payload.detail || "Не удалось удалить маркер");
         }
-        alert(`Маркер ${listingId} удалён`);
-        document.getElementById("listingIdInput").value = "";
-        document.getElementById("listingReasonInput").value = "";
-        await Promise.all([loadUsers(), loadAudit()]);
+        await Promise.all([loadAdminListings(), loadUsers(), loadAudit()]);
     } catch (error) {
         alert(error.message || "Ошибка удаления маркера");
     }
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-    await loadUsers();
-    await loadAudit();
+    await Promise.all([loadUsers(), loadAudit(), loadAdminListings()]);
 });

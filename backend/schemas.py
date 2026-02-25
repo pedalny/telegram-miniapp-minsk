@@ -110,10 +110,13 @@ class AdminAuditResponse(BaseModel):
 class AdminListingResponse(BaseModel):
     id: int
     user_id: int
+    username: Optional[str] = None
     type: str
     title: str
+    description: str
     address: str
     payment: str
+    contacts: str
     status: str
     created_at: Optional[datetime] = None
 
