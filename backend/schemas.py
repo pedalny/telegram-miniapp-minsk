@@ -35,6 +35,14 @@ class ListingCreate(ListingBase):
     pass
 
 
+class ListingUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    address: Optional[str] = None
+    payment: Optional[str] = None
+    contacts: Optional[str] = None
+
+
 class ListingResponse(ListingBase):
     id: int
     user_id: int

@@ -25,6 +25,7 @@ from .schemas import (
     ComplianceResponse,
     DeleteListingRequest,
     ListingCreate,
+    ListingUpdate,
     TermsDocumentResponse,
 )
 
@@ -247,6 +248,29 @@ def _validate_listing_text_content(listing: ListingCreate) -> None:
         "address": listing.address or "",
         "payment": listing.payment or "",
         "contacts": listing.contacts or "",
+    }
+
+    for field_name, text_value in fields_to_check.items():
+        for regex in FORBIDDEN_REGEXES:
+            match = regex.search(text_value)
+            if match:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "forbidden_content",
+                        "field": field_name,
+                        "message": "Объявление содержит запрещенную лексику и не может быть опубликовано",
+                    },
+                )
+
+
+def _validate_listing_text_update(body: ListingUpdate) -> None:
+    fields_to_check = {
+        "title": body.title or "",
+        "description": body.description or "",
+        "address": body.address or "",
+        "payment": body.payment or "",
+        "contacts": body.contacts or "",
     }
 
     for field_name, text_value in fields_to_check.items():
@@ -518,6 +542,65 @@ async def delete_listing(
         details=f"listing_id={listing.id}; reason={body.reason.strip()}",
     )
     return {"message": "Объявление снято с публикации"}
+
+
+@router.put("/api/listings/{listing_id}")
+async def update_listing(
+    listing_id: int,
+    body: ListingUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_not_banned(user)
+    _require_terms_accepted(user, db)
+
+    listing = (
+        db.query(Listing)
+        .filter(Listing.id == listing_id, Listing.user_id == user.id, Listing.status == "active")
+        .first()
+    )
+    if not listing:
+        raise HTTPException(status_code=404, detail="Объявление не найдено")
+
+    if not any(
+        [
+            body.title is not None,
+            body.description is not None,
+            body.address is not None,
+            body.payment is not None,
+            body.contacts is not None,
+        ]
+    ):
+        raise HTTPException(status_code=400, detail="Нет данных для обновления")
+
+    _validate_listing_text_update(body)
+
+    if body.title is not None:
+        listing.title = body.title
+    if body.description is not None:
+        listing.description = body.description
+    if body.address is not None:
+        listing.address = body.address
+    if body.payment is not None:
+        listing.payment = body.payment
+    if body.contacts is not None:
+        listing.contacts = body.contacts
+
+    db.commit()
+    db.refresh(listing)
+
+    return {
+        "id": listing.id,
+        "type": listing.type,
+        "title": listing.title,
+        "description": listing.description,
+        "address": listing.address,
+        "payment": listing.payment,
+        "contacts": listing.contacts,
+        "latitude": listing.latitude,
+        "longitude": listing.longitude,
+        "status": listing.status,
+    }
 
 
 @router.get("/api/listings/{listing_id}")

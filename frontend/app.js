@@ -115,6 +115,9 @@ async function bootstrapApp() {
             window.history.replaceState({}, document.title, '/');
         }, 500);
     }
+
+    // Показываем онбординг новым пользователям после небольшой задержки
+    setTimeout(maybeShowOnboarding, 800);
 }
 
 // Авторизация через Telegram
@@ -369,6 +372,7 @@ function initMap() {
         // Получаем адрес по координатам через обратный геокодинг
         map.on('click', async (e) => {
             if (!currentMode) return;
+            hideTapMapHint();
 
             const { lat, lng } = e.latlng;
             currentCoords = [lat, lng];
@@ -443,12 +447,14 @@ function initMap() {
 function startPlaceTask() {
     if (!ensureTermsAcceptedUI()) return;
     currentMode = 'task';
+    showTapMapHint('task');
 }
 
 // Начало размещения исполнителя
 function startPlaceWorker() {
     if (!ensureTermsAcceptedUI()) return;
     currentMode = 'worker';
+    showTapMapHint('worker');
 }
 
 // Показать подсказку
@@ -478,12 +484,14 @@ window.toggleHelpHint = function() {
 // Закрыть модальное окно
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('active');
-    
+
     // Не сбрасываем currentMode и currentCoords, если это доска объявлений или мои объявления
     if (modalId !== 'boardModal' && modalId !== 'myListingsModal') {
         currentMode = null;
         currentCoords = null;
         currentAddress = null;
+        editingListing = null;
+        hideTapMapHint();
         
         if (tempMarker) {
             map.removeLayer(tempMarker);
@@ -652,16 +660,60 @@ function selectOnMap(formType) {
 async function submitTask(event) {
     event.preventDefault();
     if (!ensureTermsAcceptedUI()) return;
-    
-    if (!currentCoords) {
-        alert('Выберите место на карте или используйте геолокацию');
-        return;
+
+    const isEdit = !!(editingListing && editingListing.type === 'task');
+
+    if (!isEdit) {
+        if (!currentCoords) {
+            alert('Выберите место на карте или используйте геолокацию');
+            return;
+        }
     }
-    
+
     const amount = document.getElementById('taskPaymentAmount').value;
     const type = document.getElementById('taskPaymentType').value;
-    const payment = type === 'договорная' ? 'Договорная' : `${amount} ${type}`;
-    
+    const payment = type === 'договорная' || !amount
+        ? document.getElementById('taskPaymentAmount').value ? `${amount} ${type}` : 'Договорная'
+        : `${amount} ${type}`;
+
+    if (isEdit) {
+        const body = {
+            title: document.getElementById('taskTitle').value,
+            description: document.getElementById('taskDescription').value,
+            address: document.getElementById('taskAddress').value,
+            payment: payment,
+            contacts: document.getElementById('taskContacts').value,
+        };
+        try {
+            const response = await fetch(`/api/listings/${editingListing.id}`, {
+                method: 'PUT',
+                headers: buildApiHeaders({
+                    'Content-Type': 'application/json'
+                }),
+                body: JSON.stringify(body),
+            });
+            if (response.ok) {
+                alert('Задача обновлена');
+                editingListing = null;
+                closeModal('taskModal');
+                document.getElementById('taskForm').reset();
+                await loadListings();
+                await showMyListings();
+            } else {
+                const error = await response.json();
+                if (response.status === 428) {
+                    termsState.accepted = false;
+                    await checkTermsGate();
+                }
+                alert('Ошибка: ' + (error.detail?.message || error.detail || 'Не удалось обновить объявление'));
+            }
+        } catch (error) {
+            console.error('Ошибка обновления задачи:', error);
+            alert('Ошибка при обновлении задачи');
+        }
+        return;
+    }
+
     const data = {
         type: 'task',
         title: document.getElementById('taskTitle').value,
@@ -672,7 +724,6 @@ async function submitTask(event) {
         latitude: currentCoords[0],
         longitude: currentCoords[1]
     };
-    
     try {
         const response = await fetch('/api/listings', {
             method: 'POST',
@@ -706,16 +757,60 @@ async function submitTask(event) {
 async function submitWorker(event) {
     event.preventDefault();
     if (!ensureTermsAcceptedUI()) return;
-    
-    if (!currentCoords) {
-        alert('Выберите место на карте или используйте геолокацию');
-        return;
+
+    const isEdit = !!(editingListing && editingListing.type === 'worker');
+
+    if (!isEdit) {
+        if (!currentCoords) {
+            alert('Выберите место на карте или используйте геолокацию');
+            return;
+        }
     }
-    
+
     const amount = document.getElementById('workerPaymentAmount').value;
     const type = document.getElementById('workerPaymentType').value;
-    const payment = type === 'договорная' ? 'Договорная' : `от ${amount} ${type}`;
-    
+    const payment = type === 'договорная' || !amount
+        ? document.getElementById('workerPaymentAmount').value ? `от ${amount} ${type}` : 'Договорная'
+        : `от ${amount} ${type}`;
+
+    if (isEdit) {
+        const body = {
+            title: document.getElementById('workerTitle').value,
+            description: document.getElementById('workerDescription').value,
+            address: document.getElementById('workerAddress').value,
+            payment: payment,
+            contacts: document.getElementById('workerContacts').value,
+        };
+        try {
+            const response = await fetch(`/api/listings/${editingListing.id}`, {
+                method: 'PUT',
+                headers: buildApiHeaders({
+                    'Content-Type': 'application/json'
+                }),
+                body: JSON.stringify(body),
+            });
+            if (response.ok) {
+                alert('Объявление обновлено');
+                editingListing = null;
+                closeModal('workerModal');
+                document.getElementById('workerForm').reset();
+                await loadListings();
+                await showMyListings();
+            } else {
+                const error = await response.json();
+                if (response.status === 428) {
+                    termsState.accepted = false;
+                    await checkTermsGate();
+                }
+                alert('Ошибка: ' + (error.detail?.message || error.detail || 'Не удалось обновить объявление'));
+            }
+        } catch (error) {
+            console.error('Ошибка обновления объявления:', error);
+            alert('Ошибка при обновлении объявления');
+        }
+        return;
+    }
+
     const data = {
         type: 'worker',
         title: document.getElementById('workerTitle').value,
@@ -726,7 +821,6 @@ async function submitWorker(event) {
         latitude: currentCoords[0],
         longitude: currentCoords[1]
     };
-    
     try {
         const response = await fetch('/api/listings', {
             method: 'POST',
@@ -936,6 +1030,9 @@ async function showMyListings() {
     }
 }
 
+// Глобальная переменная для режима редактирования
+let editingListing = null; // { id, type, ... }
+
 // Рендер моих объявлений
 function renderMyListings(tasks, workers) {
     const content = document.getElementById('myListingsContent');
@@ -954,10 +1051,52 @@ function renderMyListings(tasks, workers) {
             <p>📍 ${listing.address}</p>
             <p>💰 ${listing.payment}</p>
             <p style="margin-top: 8px; color: #999; font-size: 12px;">${listing.description.substring(0, 100)}...</p>
-            <button class="btn-remove" onclick="removeListing(${listing.id})">Снять</button>
+            <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-remove" onclick="editListing(${listing.id}, '${listing.type}')">Редактировать</button>
+                <button class="btn-remove" onclick="removeListing(${listing.id})">Снять</button>
+            </div>
         </div>
     `).join('');
 }
+
+// Открыть объявление в режиме редактирования
+window.editListing = function(listingId, type) {
+    const isTask = type === 'task';
+    fetch('/api/listings/my', {
+        headers: buildApiHeaders()
+    })
+        .then(r => r.json())
+        .then(listings => {
+            const found = listings.find(l => l.id === listingId);
+            if (!found) {
+                alert('Объявление не найдено');
+                return;
+            }
+            editingListing = found;
+            if (isTask) {
+                document.getElementById('taskTitle').value = found.title;
+                document.getElementById('taskDescription').value = found.description;
+                document.getElementById('taskAddress').value = found.address;
+                // payment и contacts редактируются как текст полностью
+                document.getElementById('taskPaymentAmount').value = '';
+                document.getElementById('taskPaymentType').value = 'договорная';
+                document.getElementById('taskContacts').value = found.contacts;
+                document.getElementById('taskModal').classList.add('active');
+            } else {
+                document.getElementById('workerTitle').value = found.title;
+                document.getElementById('workerDescription').value = found.description;
+                document.getElementById('workerAddress').value = found.address;
+                document.getElementById('workerPaymentAmount').value = '';
+                document.getElementById('workerPaymentType').value = 'договорная';
+                document.getElementById('workerContacts').value = found.contacts;
+                document.getElementById('workerModal').classList.add('active');
+            }
+        })
+        .catch(err => {
+            console.error('Ошибка загрузки объявления для редактирования:', err);
+            alert('Не удалось открыть объявление для редактирования');
+        });
+};
 
 // Переключение вкладок
 function switchTab(tab) {
@@ -1200,4 +1339,131 @@ window.toggleMapTheme = function() {
     const next = MAP_STYLE_ORDER[(safeIndex + 1) % MAP_STYLE_ORDER.length];
     applyMapStyle(next);
 };
+
+// ====== Подсказка "Нажмите на карту" ======
+
+let tapHintTimer = null;
+
+function showTapMapHint(mode) {
+    const el = document.getElementById('tapMapHint');
+    if (!el) return;
+    const label = '📍 Нажми на карту';
+    el.innerHTML = `<span class="tap-arrow">👆</span>${label}`;
+    el.classList.add('visible');
+    clearTimeout(tapHintTimer);
+    tapHintTimer = setTimeout(hideTapMapHint, 8000);
+}
+
+function hideTapMapHint() {
+    const el = document.getElementById('tapMapHint');
+    if (el) el.classList.remove('visible');
+    clearTimeout(tapHintTimer);
+}
+
+// ====== Мини-онбординг ======
+
+const ONBOARDING_STEPS = [
+    {
+        icon: '👋',
+        iconBg: '#eff6ff',
+        title: 'Добро пожаловать!',
+        desc: 'Это приложение помогает находить подработку в Минске. За 3 шага мы покажем как им пользоваться.',
+        highlight: null,
+    },
+    {
+        icon: '💼',
+        iconBg: '#fff5f5',
+        title: 'Кнопка «Поставить задачу»',
+        desc: 'Нажмите на красную кнопку с иконкой портфеля → затем нажмите на карту → заполните форму. Так вы ищете исполнителя.',
+        highlight: 'btn-task',
+    },
+    {
+        icon: '🙋',
+        iconBg: '#f0fdf4',
+        title: 'Кнопка «Я ищу работу»',
+        desc: 'Нажмите на зелёную кнопку с иконкой человека → укажите место на карте → расскажите о себе. Так вас найдут работодатели.',
+        highlight: 'btn-worker',
+    },
+    {
+        icon: '🗂️',
+        iconBg: '#fff7ed',
+        title: 'Доска объявлений и Мои объявления',
+        desc: 'В синей кнопке — все объявления списком. В оранжевой кнопке — управление вашими объявлениями и их удаление.',
+        highlight: null,
+    },
+];
+
+let onboardingStep = 0;
+let prevHighlight = null;
+
+function setOnboardingHighlight(className) {
+    if (prevHighlight) {
+        const old = document.querySelector('.' + prevHighlight);
+        if (old) old.classList.remove('onboarding-highlight');
+    }
+    if (className) {
+        const el = document.querySelector('.' + className);
+        if (el) el.classList.add('onboarding-highlight');
+    }
+    prevHighlight = className;
+}
+
+function renderOnboardingStep(index) {
+    const step = ONBOARDING_STEPS[index];
+    const total = ONBOARDING_STEPS.length;
+
+    const dotsEl = document.getElementById('onboardingDots');
+    if (dotsEl) {
+        dotsEl.innerHTML = ONBOARDING_STEPS.map((_, i) => {
+            let cls = 'onboarding-step-dot';
+            if (i < index) cls += ' done';
+            else if (i === index) cls += ' active';
+            return `<div class="${cls}"></div>`;
+        }).join('');
+    }
+
+    const iconEl = document.getElementById('onboardingIcon');
+    if (iconEl) {
+        iconEl.style.background = step.iconBg;
+        iconEl.textContent = step.icon;
+    }
+
+    const titleEl = document.getElementById('onboardingTitle');
+    if (titleEl) titleEl.textContent = step.title;
+
+    const descEl = document.getElementById('onboardingDesc');
+    if (descEl) descEl.textContent = step.desc;
+
+    const nextBtn = document.getElementById('onboardingNextBtn');
+    if (nextBtn) nextBtn.textContent = index === total - 1 ? 'Начать ✓' : 'Далее →';
+}
+
+window.nextOnboardingStep = function() {
+    onboardingStep++;
+    if (onboardingStep >= ONBOARDING_STEPS.length) {
+        finishOnboarding();
+    } else {
+        renderOnboardingStep(onboardingStep);
+    }
+};
+
+window.skipOnboarding = function() {
+    finishOnboarding();
+};
+
+function finishOnboarding() {
+    const overlay = document.getElementById('onboardingOverlay');
+    if (overlay) overlay.classList.remove('active');
+    try { localStorage.setItem('onboardingDone', '1'); } catch (e) {}
+}
+
+function maybeShowOnboarding() {
+    try {
+        if (localStorage.getItem('onboardingDone') === '1') return;
+    } catch (e) {}
+    onboardingStep = 0;
+    renderOnboardingStep(0);
+    const overlay = document.getElementById('onboardingOverlay');
+    if (overlay) overlay.classList.add('active');
+}
 

@@ -711,6 +711,163 @@
                 padding: 10px;
             }
         }
+
+        /* ===== ОНБОРДИНГ ===== */
+        .onboarding-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9000;
+            background: rgba(2, 6, 23, 0.82);
+            backdrop-filter: blur(4px);
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 0;
+        }
+        .onboarding-overlay.active {
+            display: flex;
+        }
+
+        .onboarding-card {
+            width: 100%;
+            max-width: 480px;
+            background: #fff;
+            border-radius: 24px 24px 0 0;
+            padding: 28px 24px 32px;
+            animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
+            position: relative;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        .onboarding-steps {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 24px;
+        }
+        .onboarding-step-dot {
+            flex: 1;
+            height: 4px;
+            border-radius: 2px;
+            background: #e5e7eb;
+            transition: background 0.3s;
+        }
+        .onboarding-step-dot.active {
+            background: #007bff;
+        }
+        .onboarding-step-dot.done {
+            background: var(--app-green);
+        }
+
+        .onboarding-icon-wrap {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 18px;
+            font-size: 32px;
+        }
+
+        .onboarding-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #111827;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .onboarding-desc {
+            font-size: 14px;
+            color: #6b7280;
+            text-align: center;
+            line-height: 1.55;
+            margin-bottom: 28px;
+            min-height: 54px;
+        }
+
+        .onboarding-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .onboarding-btn-skip {
+            flex: 1;
+            padding: 12px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 12px;
+            background: transparent;
+            color: #6b7280;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .onboarding-btn-next {
+            flex: 2;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            background: #007bff;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .onboarding-btn-next:active {
+            background: #0056b3;
+        }
+
+        /* Подсветка кнопки во время онбординга */
+        .onboarding-highlight {
+            box-shadow: 0 0 0 4px rgba(0,123,255,0.55), 0 0 0 8px rgba(0,123,255,0.2) !important;
+            z-index: 9100 !important;
+            transform: scale(1.08) !important;
+            transition: transform 0.2s, box-shadow 0.2s !important;
+        }
+
+        /* ===== ПОДСКАЗКА "НАЖМИТЕ НА КАРТУ" ===== */
+        .tap-map-hint {
+            display: none;
+            position: fixed;
+            bottom: 148px;
+            left: 50%;
+            transform: translateX(-50%) translateZ(0);
+            z-index: 3000;
+            background: rgba(15, 23, 42, 0.88);
+            color: #fff;
+            padding: 12px 22px;
+            border-radius: 999px;
+            font-size: 15px;
+            font-weight: 600;
+            white-space: nowrap;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            pointer-events: none;
+            animation: tapHintPulse 1.8s ease-in-out infinite;
+        }
+        .tap-map-hint.visible {
+            display: block;
+        }
+        .tap-map-hint .tap-arrow {
+            display: inline-block;
+            margin-right: 6px;
+            animation: arrowBounce 0.8s ease-in-out infinite;
+        }
+
+        @keyframes tapHintPulse {
+            0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+            50%       { opacity: 0.75; transform: translateX(-50%) scale(0.97); }
+        }
+        @keyframes arrowBounce {
+            0%, 100% { transform: translateY(0); }
+            50%       { transform: translateY(-4px); }
+        }
     </style>
 </head>
 <body>
@@ -764,6 +921,25 @@
 
     <!-- Подсказка -->
     <div class="hint" id="hint">Нажмите на карте, где будет работа</div>
+
+    <!-- Подсказка "нажмите на карту" после выбора режима -->
+    <div class="tap-map-hint" id="tapMapHint">
+        <span class="tap-arrow">👆</span>Нажмите на карту
+    </div>
+
+    <!-- Онбординг -->
+    <div class="onboarding-overlay" id="onboardingOverlay">
+        <div class="onboarding-card" id="onboardingCard">
+            <div class="onboarding-steps" id="onboardingDots"></div>
+            <div class="onboarding-icon-wrap" id="onboardingIcon"></div>
+            <div class="onboarding-title" id="onboardingTitle"></div>
+            <div class="onboarding-desc" id="onboardingDesc"></div>
+            <div class="onboarding-actions">
+                <button class="onboarding-btn-skip" onclick="skipOnboarding()">Пропустить</button>
+                <button class="onboarding-btn-next" id="onboardingNextBtn" onclick="nextOnboardingStep()">Далее →</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Модальное окно создания задачи -->
     <div class="modal" id="taskModal">
